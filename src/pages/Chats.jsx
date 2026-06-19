@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Search, Send, Phone, Video, MoreVertical, MessageSquare, 
   CheckCheck, ArrowLeft, PhoneOff, PhoneIncoming, 
-  Home as HomeIcon, User 
+  Home as HomeIcon, User, Paperclip, Smile
 } from 'lucide-react';
 
 import { useSocket } from '../context/SocketContext';
@@ -254,22 +254,21 @@ const Chats = () => {
   const currentMessages = activeChatId ? (chatHistory[activeChatId] || []) : [];
 
   return (
-    // Dynamic height and bottom padding depending on screen size and active chat state
-    <div className={`max-w-7xl mx-auto md:px-4 md:py-6 h-[100dvh] md:h-[calc(100vh-100px)] ${!activeChat ? 'pb-[72px] md:pb-0' : ''}`}>
-      <div className="bg-white md:rounded-3xl shadow-sm md:border border-gray-100 flex h-full overflow-hidden relative">
+    <div className={`max-w-[1600px] mx-auto md:py-4 h-[100dvh] md:h-screen bg-[#0a1014] ${!activeChat ? 'pb-[60px] md:pb-0' : ''}`}>
+      <div className="bg-[#111b21] md:rounded-md shadow-lg flex h-full overflow-hidden relative border-none">
         
         {/* ==================== 📞 INCOMING CALL SCREEN ==================== */}
         {callData.isReceiving && !callData.isActive && (
-          <div className="absolute inset-0 bg-slate-900/95 z-50 flex flex-col items-center justify-center text-white animate-fade-in">
-            <div className="w-24 h-24 bg-green-600 rounded-full flex items-center justify-center mb-6 animate-bounce shadow-[0_0_20px_rgba(22,163,74,0.5)]">
+          <div className="absolute inset-0 bg-[#0b141a]/95 z-50 flex flex-col items-center justify-center text-[#e9edef] animate-fade-in">
+            <div className="w-24 h-24 bg-[#00a884] rounded-full flex items-center justify-center mb-6 animate-bounce shadow-[0_0_20px_rgba(0,168,132,0.5)]">
               {callData.callType === 'audio' ? <PhoneIncoming size={40} /> : <Video size={40} />}
             </div>
-            <h2 className="text-3xl font-bold">Incoming {callData.callType === 'audio' ? 'Audio' : 'Video'} Call...</h2>
+            <h2 className="text-3xl font-bold text-[#e9edef]">Incoming {callData.callType === 'audio' ? 'Audio' : 'Video'} Call...</h2>
             <div className="flex gap-8 mt-12">
-              <button onClick={handleAcceptCall} className="p-5 bg-green-500 hover:bg-green-600 rounded-full transition-transform transform hover:scale-110 shadow-lg flex flex-col items-center gap-2">
+              <button onClick={handleAcceptCall} className="p-5 bg-[#00a884] hover:bg-[#029173] rounded-full transition-transform transform hover:scale-110 shadow-lg text-white">
                 <Phone size={28} />
               </button>
-              <button onClick={handleEndOrRejectCall} className="p-5 bg-red-600 hover:bg-red-700 rounded-full transition-transform transform hover:scale-110 shadow-lg flex flex-col items-center gap-2">
+              <button onClick={handleEndOrRejectCall} className="p-5 bg-red-500 hover:bg-red-600 rounded-full transition-transform transform hover:scale-110 shadow-lg text-white">
                 <PhoneOff size={28} />
               </button>
             </div>
@@ -289,38 +288,57 @@ const Chats = () => {
         )}
 
         {/* --- LEFT SIDEBAR (CONTACTS) --- */}
-        <div className={`w-full md:w-1/3 md:border-r border-gray-100 flex flex-col bg-gray-50/50 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-4 border-b border-gray-100 space-y-3 bg-white md:bg-transparent">
-            <h2 className="text-xl font-black text-slate-800">Messages</h2>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+        <div className={`w-full md:w-[30%] lg:w-[35%] border-r border-[#222d34] flex flex-col bg-[#111b21] ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+          {/* Header */}
+          <div className="bg-[#202c33] p-3.5 flex justify-between items-center text-[#aebac1]">
+             <h2 className="text-[20px] font-semibold text-[#e9edef]">Chats</h2>
+             <div className="flex gap-4">
+                <MessageSquare size={20} className="cursor-pointer hover:text-[#e9edef] transition-colors" />
+                <MoreVertical size={20} className="cursor-pointer hover:text-[#e9edef] transition-colors" />
+             </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="p-2 border-b border-[#202c33]">
+            <div className="bg-[#202c33] flex items-center rounded-lg px-3 py-1.5 gap-3">
+              <Search className="text-[#8696a0]" size={18} />
               <input 
-                type="text" placeholder="Search chats..." value={searchQuery}
+                type="text" placeholder="Search or start new chat" value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-xl text-sm outline-none placeholder-gray-400 focus:bg-gray-200/50 transition-colors"
+                className="w-full bg-transparent text-[#e9edef] text-[15px] outline-none placeholder-[#8696a0]"
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+
+          {/* Contact List */}
+          <div className="flex-1 overflow-y-auto style-scrollbar">
             {filteredContacts.map((contact) => {
               const contactId = getUserId(contact);
               const isChatActive = activeChatId === contactId;
               return (
                 <div key={contactId} onClick={() => handleSelectChat(contact)}
-                  className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors ${isChatActive ? 'bg-green-50 text-green-900' : 'hover:bg-white'}`}>
-                  <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold uppercase shrink-0">
+                  className={`flex items-center px-3 py-3 cursor-pointer transition-colors ${isChatActive ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}`}>
+                  <div className="w-12 h-12 bg-[#6b7c85] text-[#e9edef] rounded-full flex items-center justify-center font-bold uppercase shrink-0 mr-3">
                     {contact.name ? contact.name.charAt(0) : 'U'}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold truncate">{contact.name || 'User'}</h3>
-                    <p className="text-xs text-gray-500 truncate">{contact.lastMessage || 'No messages yet'}</p>
-                  </div>
-                  
-                  {contact.unreadCount > 0 && (
-                    <div className="bg-green-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0 shadow-sm">
-                      {contact.unreadCount}
+                  <div className="flex-1 min-w-0 border-b border-[#222d34] pb-3 -mb-3 flex justify-between">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <h3 className="text-[16px] text-[#e9edef] truncate">{contact.name || 'User'}</h3>
+                      <p className={`text-[14px] truncate ${contact.unreadCount > 0 ? 'text-[#e9edef] font-medium' : 'text-[#8696a0]'}`}>
+                        {contact.lastMessage || 'No messages yet'}
+                      </p>
                     </div>
-                  )}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`text-[12px] ${contact.unreadCount > 0 ? 'text-[#00a884]' : 'text-[#8696a0]'}`}>
+                        {/* Time Logic Placeholder */} 12:00
+                      </span>
+                      {contact.unreadCount > 0 && (
+                        <div className="bg-[#00a884] text-[#111b21] text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0">
+                          {contact.unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -328,49 +346,63 @@ const Chats = () => {
         </div>
 
         {/* --- RIGHT PANEL (CHAT BOX) --- */}
-        <div className={`flex-1 flex-col bg-white ${activeChat ? 'flex' : 'hidden md:flex'}`}>
+        <div className={`flex-1 flex-col bg-[#222d34] ${activeChat ? 'flex' : 'hidden md:flex'}`}>
           {activeChat ? (
             <>
               {/* ചാറ്റ് ഹെഡർ */}
-              <div className="flex items-center justify-between p-4 border-b bg-white shadow-sm z-10">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-[#202c33] z-10 border-l border-[#222d34]">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setActiveChat(null)} className="md:hidden p-1.5 -ml-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                    <ArrowLeft size={22} className="text-gray-700" />
+                  <button onClick={() => setActiveChat(null)} className="md:hidden p-1 -ml-2 text-[#aebac1] hover:bg-[#2a3942] rounded-full">
+                    <ArrowLeft size={24} />
                   </button>
-                  <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center font-bold uppercase shrink-0">
+                  <div className="w-10 h-10 bg-[#6b7c85] text-[#e9edef] rounded-full flex items-center justify-center font-bold uppercase shrink-0">
                     {activeChat.name ? activeChat.name.charAt(0) : 'U'}
                   </div>
-                  <h3 className="text-base font-bold text-slate-800">{activeChat.name || 'User'}</h3>
+                  <div>
+                     <h3 className="text-[16px] text-[#e9edef] font-medium">{activeChat.name || 'User'}</h3>
+                     <p className="text-[13px] text-[#8696a0]">tap here for contact info</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 sm:gap-2 text-gray-600">
-                  <button onClick={() => handleStartCall('audio')} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Audio Call">
-                    <Phone size={20} />
-                  </button>
-                  <button onClick={() => handleStartCall('video')} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Video Call">
+                <div className="flex items-center gap-4 text-[#aebac1]">
+                  <button onClick={() => handleStartCall('video')} className="hover:text-[#e9edef] transition-colors" title="Video Call">
                     <Video size={20} />
                   </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-full transition-colors hidden sm:block"><MoreVertical size={18} /></button>
+                  <button onClick={() => handleStartCall('audio')} className="hover:text-[#e9edef] transition-colors" title="Audio Call">
+                    <Phone size={20} />
+                  </button>
+                  <button className="hover:text-[#e9edef] transition-colors">
+                    <Search size={20} />
+                  </button>
+                  <button className="hover:text-[#e9edef] transition-colors">
+                    <MoreVertical size={20} />
+                  </button>
                 </div>
               </div>
 
-              {/* Chat background layout */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#efeae2] space-y-4">
+              {/* Chat Background */}
+              {/* Using WhatsApp default dark background color #0b141a */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0b141a] space-y-2 relative" 
+                   style={{ backgroundImage: 'radial-gradient(circle at center, #111b21 0%, #0b141a 100%)' }}>
                 {currentMessages.map((msg) => {
                   const msgSenderId = getUserId(msg.senderId || msg.sender);
                   const isMyMessage = msgSenderId === currentUserId;
-                  const tickColor = msg.status === 'read' ? 'text-[#53bdeb]' : 'text-gray-400';
+                  const tickColor = msg.status === 'read' ? 'text-[#53bdeb]' : 'text-[#8696a0]';
                   
                   return (
-                    <div key={msg._id || Math.random().toString()} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] sm:max-w-[70%] rounded-xl px-3 py-1.5 shadow-sm ${
+                    <div key={msg._id || Math.random().toString()} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-1`}>
+                      <div className={`max-w-[85%] sm:max-w-[65%] px-3 py-1.5 text-[15px] shadow-sm relative group ${
                         isMyMessage 
-                          ? 'bg-[#d9fdd3] text-slate-800 rounded-tr-none' 
-                          : 'bg-white text-slate-800 rounded-tl-none'   
+                          ? 'bg-[#005c4b] text-[#e9edef] rounded-lg rounded-tr-none' 
+                          : 'bg-[#202c33] text-[#e9edef] rounded-lg rounded-tl-none'   
                       }`}>
-                        <p className="text-[15px] sm:text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
-                        <div className="flex justify-end items-center gap-1 text-[10px] opacity-70 mt-0.5">
-                          {msg.time || formatTime(msg.createdAt)} 
-                          {isMyMessage && <CheckCheck size={14} className={tickColor} />}
+                        <div className="flex flex-wrap items-end gap-2">
+                          <span className="leading-relaxed whitespace-pre-wrap break-words pb-1 pr-10">
+                            {msg.text}
+                          </span>
+                          <span className="text-[11px] text-[#8696a0] flex items-center gap-1 absolute bottom-1 right-2">
+                            {msg.time || formatTime(msg.createdAt)} 
+                            {isMyMessage && <CheckCheck size={16} className={tickColor} />}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -380,19 +412,36 @@ const Chats = () => {
               </div>
 
               {/* ഇൻപുട്ട് ബാർ */}
-              <form onSubmit={handleSendMessage} className="p-3 sm:p-4 bg-[#f0f2f5] flex gap-2 pb-safe">
-                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..." className="flex-1 bg-white rounded-full px-4 py-3 sm:py-2.5 text-[15px] sm:text-sm outline-none shadow-sm" />
-                <button type="submit" className="p-3 sm:p-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors shadow-sm shrink-0 flex items-center justify-center">
-                  <Send size={18} className="ml-0.5" />
-                </button>
+              <form onSubmit={handleSendMessage} className="px-4 py-3 bg-[#202c33] flex items-center gap-3 pb-safe">
+                <Smile size={26} className="text-[#aebac1] cursor-pointer hover:text-[#e9edef] shrink-0" />
+                <Paperclip size={24} className="text-[#aebac1] cursor-pointer hover:text-[#e9edef] shrink-0" />
+                <div className="flex-1 bg-[#2a3942] rounded-lg px-4 py-2.5 flex items-center">
+                  <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type a message" className="w-full bg-transparent text-[#e9edef] text-[15px] outline-none placeholder-[#8696a0]" />
+                </div>
+                {newMessage.trim() ? (
+                  <button type="submit" className="p-2.5 bg-[#00a884] text-[#111b21] rounded-full hover:bg-[#029173] transition-colors shrink-0">
+                    <Send size={20} className="ml-1" />
+                  </button>
+                ) : (
+                  <button type="button" className="p-2.5 text-[#aebac1] hover:text-[#e9edef] transition-colors shrink-0">
+                     {/* Microphone Icon Placeholder */}
+                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.001-1.53-3.531-3.531-3.531S8.469 2.35 8.469 4.35v7.061c0 2.001 1.53 3.531 3.53 3.531zm6.238-3.53c0 3.531-2.942 6.002-6.237 6.002s-6.237-2.471-6.237-6.002H3.761c0 4.001 3.178 7.297 7.061 7.885v3.884h2.354v-3.884c3.884-.588 7.061-3.884 7.061-7.885h-2z"></path></svg>
+                  </button>
+                )}
               </form>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] text-gray-500">
-              <div className="text-center">
-                <MessageSquare size={48} className="mx-auto mb-3 opacity-20" />
-                <p className="font-medium">Select a chat to start messaging</p>
+            // Empty State (No Chat Selected)
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#222d34] text-[#8696a0] border-l border-[#222d34]">
+              <div className="text-center max-w-sm px-6">
+                <div className="flex justify-center mb-6">
+                   <div className="w-[320px] h-[160px] bg-[#2a3942] rounded-2xl flex items-center justify-center text-[#e9edef]/20">
+                      <MessageSquare size={64} />
+                   </div>
+                </div>
+                <h2 className="text-3xl font-light text-[#e9edef] mb-4">WhatsApp for Web</h2>
+                <p className="text-[14px] leading-relaxed">Send and receive messages without keeping your phone online.<br/>Use WhatsApp on up to 4 linked devices and 1 phone at the same time.</p>
               </div>
             </div>
           )}
@@ -401,25 +450,21 @@ const Chats = () => {
       </div>
 
       {/* --- MOBILE BOTTOM NAVIGATION BAR --- */}
-      {/* Hidden when an active chat is open to maximize typing space on mobile */}
       {!activeChat && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-2.5 flex justify-between items-center shadow-[0_-8px_20px_rgba(0,0,0,0.04)] pb-safe">
-          <button onClick={() => navigate('/')} className="flex flex-col items-center w-16 text-slate-400 hover:text-green-600 transition-colors">
-            <HomeIcon size={24} className="stroke-2 mb-1" />
-            <span className="text-[10px] font-bold">Home</span>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#111b21] border-t border-[#202c33] px-6 py-3 flex justify-between items-center pb-safe">
+          <button onClick={() => navigate('/')} className="flex flex-col items-center w-16 text-[#8696a0] hover:text-[#e9edef] transition-colors">
+            <HomeIcon size={24} className="mb-1" />
+            <span className="text-[11px] font-medium">Home</span>
           </button>
           
-          <button onClick={() => navigate('/chats')} className="flex flex-col items-center w-16 text-green-600 transition-colors relative">
-            <div className="relative">
-              <MessageSquare size={24} className="stroke-2 mb-1" />
-              {/* Optional: Add a total unread indicator dot here if needed */}
-            </div>
-            <span className="text-[10px] font-bold">Messages</span>
+          <button onClick={() => navigate('/chats')} className="flex flex-col items-center w-16 text-[#00a884] transition-colors relative">
+            <MessageSquare size={24} className="mb-1 fill-[#00a884]/20" />
+            <span className="text-[11px] font-medium">Chats</span>
           </button>
           
-          <button onClick={() => navigate('/profile')} className="flex flex-col items-center w-16 text-slate-400 hover:text-green-600 transition-colors">
-            <User size={24} className="stroke-2 mb-1" />
-            <span className="text-[10px] font-bold">Profile</span>
+          <button onClick={() => navigate('/profile')} className="flex flex-col items-center w-16 text-[#8696a0] hover:text-[#e9edef] transition-colors">
+            <User size={24} className="mb-1" />
+            <span className="text-[11px] font-medium">Profile</span>
           </button>
         </div>
       )}

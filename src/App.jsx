@@ -8,6 +8,7 @@ import { useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import CallModal from './components/CallModal';
+import BottomNavbar from './components/BottomNavbar'; // 💡 പുതിയ BottomNavbar ഇംപോർട്ട് ചെയ്തു
 
 // Pages
 import Home from './pages/Home';
@@ -34,6 +35,7 @@ const Navbar = () => {
   return (
     <motion.nav className="sticky top-0 z-50 backdrop-blur-md bg-white/90 border-b border-gray-100 px-4 py-3.5 shadow-sm">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
+        {/* LOGO */}
         <Link to="/" className="flex items-center gap-2">
           <div className="bg-green-600 text-white p-2 rounded-xl">
             <Building2 size={20} />
@@ -43,25 +45,29 @@ const Navbar = () => {
           </span>
         </Link>
         
-        <div className="flex gap-4 font-semibold text-gray-600">
-          <Link to="/" className="hover:text-green-600">Home</Link>
-          <Link to="/explore" className="hover:text-green-600">Explore</Link>
+        {/* DESKTOP NAVIGATION (മൊബൈലിൽ ഹൈഡ് ആകും) */}
+        <div className="hidden md:flex gap-6 font-semibold text-gray-600 text-sm">
+          <Link to="/" className="hover:text-green-600 transition-colors">Home</Link>
+          <Link to="/explore" className="hover:text-green-600 transition-colors">Explore</Link>
           {user && (
             <>
-              <Link to="/chats" className="hover:text-green-600">Chats</Link>
-              {user.role === 'owner' && <Link to="/dashboard" className="text-blue-600">Dashboard</Link>}
-              {user.role === 'admin' && <Link to="/admin" className="text-purple-600">Admin</Link>}
+              <Link to="/chats" className="hover:text-green-600 transition-colors">Chats</Link>
+              {user.role === 'owner' && <Link to="/dashboard" className="text-blue-600 transition-colors">Dashboard</Link>}
+              {user.role === 'admin' && <Link to="/admin" className="text-purple-600 transition-colors">Admin</Link>}
             </>
           )}
         </div>
 
+        {/* AUTH BUTTONS */}
         <div className="flex items-center gap-3">
           {user ? (
-            <button onClick={handleLogout} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1">
-              <LogOut size={14} /> Logout
+            <button onClick={handleLogout} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+              <LogOut size={14} /> <span className="hidden sm:inline">Logout</span>
             </button>
           ) : (
-            <Link to="/login" className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold">Sign In</Link>
+            <Link to="/login" className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm">
+              Sign In
+            </Link>
           )}
         </div>
       </div>
@@ -92,7 +98,8 @@ const AppContent = () => {
   }, [socket]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    // 💡 താഴെ pb-16 നൽകിയത് ശ്രദ്ധിക്കുക. മൊബൈലിൽ ബാറിനടിയിൽ കണ്ടന്റ് മറയാതിരിക്കാനാണ് ഇത്.
+    <div className="flex flex-col min-h-screen bg-gray-50 pb-16 md:pb-0">
       <Navbar />
       
       {/* കോൾ മോഡൽ */}
@@ -122,6 +129,9 @@ const AppContent = () => {
           <Route path="/add-property" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><AddProperty /></ProtectedRoute>} />
         </Routes>
       </div>
+
+      {/* 💡 ഇവിടെ BottomNavbar ചേർത്തു */}
+      <BottomNavbar />
     </div>
   );
 };
