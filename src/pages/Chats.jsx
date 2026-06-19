@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Send, Phone, Video, MoreVertical, MessageSquare, CheckCheck, ArrowLeft, PhoneOff, PhoneIncoming } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Search, Send, Phone, Video, MoreVertical, MessageSquare, 
+  CheckCheck, ArrowLeft, PhoneOff, PhoneIncoming, 
+  Home as HomeIcon, User 
+} from 'lucide-react';
 
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +14,7 @@ import { apiRequest } from '../services/api';
 import VideoCall from '../components/VideoCall';
 
 const Chats = () => {
+  const navigate = useNavigate();
   const socket = useSocket();
   const { user } = useAuth(); 
   
@@ -57,7 +63,6 @@ const Chats = () => {
       try {
         const res = await apiRequest('/messages/conversations', { method: 'GET' });
         const data = await res.json();
-        // ബാക്കെൻഡിൽ നിന്ന് unreadCount വരുന്നുണ്ടെങ്കിൽ അത് ഇവിടെ ലഭിക്കും
         if (data.success) setContacts(data.data);
       } catch (err) { console.error("Error fetching conversations:", err); }
     };
@@ -102,7 +107,6 @@ const Chats = () => {
         const filtered = prevContacts.filter((c) => getUserId(c) !== otherUserId);
         const existing = prevContacts.find((c) => getUserId(c) === otherUserId);
         
-        // 🟢 ലൈവ് ആയി മെസ്സേജ് വരുമ്പോൾ Unread Count കൂട്ടാനുള്ള ലോജിക്
         const isChatOpen = activeChatIdRef.current === otherUserId;
         const currentUnreadCount = existing?.unreadCount || 0;
         const newUnreadCount = isChatOpen ? 0 : currentUnreadCount + 1;
@@ -112,14 +116,14 @@ const Chats = () => {
               ...existing, 
               lastMessage: message.text, 
               time: 'Just now',
-              unreadCount: newUnreadCount // 👈 Unread Count അപ്ഡേറ്റ് ചെയ്യുന്നു
+              unreadCount: newUnreadCount 
             }
           : { 
               _id: otherUserId, 
               name: message.senderName || 'User', 
               lastMessage: message.text, 
               time: 'Just now',
-              unreadCount: 1 // 👈 പുതിയ ആൾ ആണെങ്കിൽ Count 1 ആക്കുന്നു
+              unreadCount: 1 
             };
 
         return [updatedContact, ...filtered];
@@ -173,7 +177,6 @@ const Chats = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, activeChatId]);
 
-  // 🟢 ചാറ്റ് സെലക്ട് ചെയ്യുമ്പോൾ Unread Count ക്ലിയർ ചെയ്യാനുള്ള ഫങ്ഷൻ
   const handleSelectChat = (contact) => {
     setActiveChat(contact);
     const contactId = getUserId(contact);
@@ -251,8 +254,9 @@ const Chats = () => {
   const currentMessages = activeChatId ? (chatHistory[activeChatId] || []) : [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 h-[calc(100vh-100px)]">
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 flex h-full overflow-hidden relative">
+    // Dynamic height and bottom padding depending on screen size and active chat state
+    <div className={`max-w-7xl mx-auto md:px-4 md:py-6 h-[100dvh] md:h-[calc(100vh-100px)] ${!activeChat ? 'pb-[72px] md:pb-0' : ''}`}>
+      <div className="bg-white md:rounded-3xl shadow-sm md:border border-gray-100 flex h-full overflow-hidden relative">
         
         {/* ==================== 📞 INCOMING CALL SCREEN ==================== */}
         {callData.isReceiving && !callData.isActive && (
@@ -285,8 +289,8 @@ const Chats = () => {
         )}
 
         {/* --- LEFT SIDEBAR (CONTACTS) --- */}
-        <div className={`w-full md:w-1/3 border-r border-gray-100 flex flex-col bg-gray-50/50 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-4 border-b border-gray-100 space-y-3">
+        <div className={`w-full md:w-1/3 md:border-r border-gray-100 flex flex-col bg-gray-50/50 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+          <div className="p-4 border-b border-gray-100 space-y-3 bg-white md:bg-transparent">
             <h2 className="text-xl font-black text-slate-800">Messages</h2>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
@@ -302,7 +306,6 @@ const Chats = () => {
               const contactId = getUserId(contact);
               const isChatActive = activeChatId === contactId;
               return (
-                // 🟢 onClick ഇവിടെ മാറ്റിയിട്ടുണ്ട് (പുതിയ ഫങ്ഷൻ കൊടുത്തിരിക്കുന്നു)
                 <div key={contactId} onClick={() => handleSelectChat(contact)}
                   className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors ${isChatActive ? 'bg-green-50 text-green-900' : 'hover:bg-white'}`}>
                   <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold uppercase shrink-0">
@@ -313,13 +316,11 @@ const Chats = () => {
                     <p className="text-xs text-gray-500 truncate">{contact.lastMessage || 'No messages yet'}</p>
                   </div>
                   
-                  {/* 🟢 പുതിയ Unread Badge UI */}
                   {contact.unreadCount > 0 && (
                     <div className="bg-green-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shrink-0 shadow-sm">
                       {contact.unreadCount}
                     </div>
                   )}
-
                 </div>
               );
             })}
@@ -333,27 +334,27 @@ const Chats = () => {
               {/* ചാറ്റ് ഹെഡർ */}
               <div className="flex items-center justify-between p-4 border-b bg-white shadow-sm z-10">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setActiveChat(null)} className="md:hidden p-1 hover:bg-gray-100 rounded-full transition-colors">
-                    <ArrowLeft size={20} className="text-gray-600" />
+                  <button onClick={() => setActiveChat(null)} className="md:hidden p-1.5 -ml-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                    <ArrowLeft size={22} className="text-gray-700" />
                   </button>
                   <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center font-bold uppercase shrink-0">
                     {activeChat.name ? activeChat.name.charAt(0) : 'U'}
                   </div>
                   <h3 className="text-base font-bold text-slate-800">{activeChat.name || 'User'}</h3>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className="flex items-center gap-1 sm:gap-2 text-gray-600">
                   <button onClick={() => handleStartCall('audio')} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Audio Call">
                     <Phone size={20} />
                   </button>
                   <button onClick={() => handleStartCall('video')} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Video Call">
                     <Video size={20} />
                   </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-full transition-colors"><MoreVertical size={18} /></button>
+                  <button className="p-2 hover:bg-gray-100 rounded-full transition-colors hidden sm:block"><MoreVertical size={18} /></button>
                 </div>
               </div>
 
               {/* Chat background layout */}
-              <div className="flex-1 overflow-y-auto p-6 bg-[#efeae2] space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#efeae2] space-y-4">
                 {currentMessages.map((msg) => {
                   const msgSenderId = getUserId(msg.senderId || msg.sender);
                   const isMyMessage = msgSenderId === currentUserId;
@@ -361,12 +362,12 @@ const Chats = () => {
                   
                   return (
                     <div key={msg._id || Math.random().toString()} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] rounded-xl px-3 py-1.5 shadow-sm ${
+                      <div className={`max-w-[85%] sm:max-w-[70%] rounded-xl px-3 py-1.5 shadow-sm ${
                         isMyMessage 
                           ? 'bg-[#d9fdd3] text-slate-800 rounded-tr-none' 
                           : 'bg-white text-slate-800 rounded-tl-none'   
                       }`}>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
+                        <p className="text-[15px] sm:text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
                         <div className="flex justify-end items-center gap-1 text-[10px] opacity-70 mt-0.5">
                           {msg.time || formatTime(msg.createdAt)} 
                           {isMyMessage && <CheckCheck size={14} className={tickColor} />}
@@ -379,10 +380,12 @@ const Chats = () => {
               </div>
 
               {/* ഇൻപുട്ട് ബാർ */}
-              <form onSubmit={handleSendMessage} className="p-4 bg-[#f0f2f5] flex gap-2">
+              <form onSubmit={handleSendMessage} className="p-3 sm:p-4 bg-[#f0f2f5] flex gap-2 pb-safe">
                 <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..." className="flex-1 bg-white rounded-full px-4 py-2.5 text-sm outline-none shadow-sm" />
-                <button type="submit" className="p-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors shadow-sm"><Send size={18} /></button>
+                  placeholder="Type a message..." className="flex-1 bg-white rounded-full px-4 py-3 sm:py-2.5 text-[15px] sm:text-sm outline-none shadow-sm" />
+                <button type="submit" className="p-3 sm:p-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors shadow-sm shrink-0 flex items-center justify-center">
+                  <Send size={18} className="ml-0.5" />
+                </button>
               </form>
             </>
           ) : (
@@ -396,6 +399,30 @@ const Chats = () => {
         </div>
 
       </div>
+
+      {/* --- MOBILE BOTTOM NAVIGATION BAR --- */}
+      {/* Hidden when an active chat is open to maximize typing space on mobile */}
+      {!activeChat && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-2.5 flex justify-between items-center shadow-[0_-8px_20px_rgba(0,0,0,0.04)] pb-safe">
+          <button onClick={() => navigate('/')} className="flex flex-col items-center w-16 text-slate-400 hover:text-green-600 transition-colors">
+            <HomeIcon size={24} className="stroke-2 mb-1" />
+            <span className="text-[10px] font-bold">Home</span>
+          </button>
+          
+          <button onClick={() => navigate('/chats')} className="flex flex-col items-center w-16 text-green-600 transition-colors relative">
+            <div className="relative">
+              <MessageSquare size={24} className="stroke-2 mb-1" />
+              {/* Optional: Add a total unread indicator dot here if needed */}
+            </div>
+            <span className="text-[10px] font-bold">Messages</span>
+          </button>
+          
+          <button onClick={() => navigate('/profile')} className="flex flex-col items-center w-16 text-slate-400 hover:text-green-600 transition-colors">
+            <User size={24} className="stroke-2 mb-1" />
+            <span className="text-[10px] font-bold">Profile</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
