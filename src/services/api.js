@@ -3,7 +3,8 @@
  * എല്ലാ ബാക്ക്-എൻഡ് കോളുകൾക്കും വേണ്ടി ഉപയോഗിക്കുന്ന കോമൺ ഫങ്ഷൻ
  */
 
-const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
+// 💡 ഇവിടെ localhost മാറ്റി പുതിയ Render ലിങ്ക് കൊടുത്തു 
+const BASE_URL = import.meta.env?.VITE_API_URL || 'https://rentnest-backend-civ9.onrender.com/api';
 
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${BASE_URL}${endpoint}`;
@@ -13,7 +14,6 @@ export const apiRequest = async (endpoint, options = {}) => {
   };
 
   // 💡 മാറ്റം 1: ബോഡി ഒരു പ്ലെയിൻ ഒബ്‌ജക്റ്റ് ആണെങ്കിൽ ഓട്ടോമാറ്റിക് ആയി stringify ചെയ്യും.
-  // ഇനി കോമ്പോണന്റുകളിൽ JSON.stringify() എന്ന് പ്രത്യേകം എഴുതേണ്ടതില്ല.
   if (options.body && !(options.body instanceof FormData) && typeof options.body === 'object') {
     options.body = JSON.stringify(options.body);
   }
@@ -48,7 +48,6 @@ export const apiRequest = async (endpoint, options = {}) => {
     console.error("API Request Error:", error);
     
     // 💡 മാറ്റം 2 (പ്രധാനം): നെറ്റ്‌വർക്ക് എറർ ഉണ്ടായാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ 
-    // ഒരു ഫേക്ക് json() ഫങ്ക്ഷൻ കൂടി അടങ്ങിയ ഒബ്‌ജക്റ്റ് റിട്ടേൺ ചെയ്യുന്നു.
     return {
       ok: false,
       status: 500,

@@ -10,7 +10,7 @@ export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
     const { user } = useAuth();
 
-    // 💡 1. Extract the ID as a primitive string outside the effect
+    // 💡 Extract the ID as a primitive string outside the effect
     const currentUserId = user ? (user._id || user.id)?.toString() : null;
 
     useEffect(() => {
@@ -20,8 +20,9 @@ export const SocketProvider = ({ children }) => {
         let newSocket;
         console.log("🔌 Initializing connection for User ID:", currentUserId);
         
-        // 💡 Vite-ൽ process.env-ന് പകരം import.meta.env ആണ് ഉപയോഗിക്കുന്നത്
-        const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        // 💡 മാറ്റം വരുത്തിയ ഭാഗം: localhost മാറ്റി പുതിയ Render ലിങ്ക് നൽകി.
+        // ശ്രദ്ധിക്കുക: Socket-ന് '/api' ഇല്ലാത്ത മെയിൻ ലിങ്ക് ആണ് വേണ്ടത്.
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://rentnest-backend-civ9.onrender.com";
 
         newSocket = io(SOCKET_URL, {
             query: { userId: currentUserId }, 
@@ -56,7 +57,7 @@ export const SocketProvider = ({ children }) => {
                 setSocket(null); 
             }
         };
-    }, [currentUserId]); // 💡 2. Only re-run if the string ID itself changes
+    }, [currentUserId]); 
 
     return (
         <SocketContext.Provider value={socket}>
