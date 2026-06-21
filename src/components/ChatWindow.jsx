@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Video, Phone, ArrowLeft, CheckCheck, Clock, PhoneMissed, 
-  Smile, Paperclip, Send, Mic, X, Sun, Moon 
+  Smile, Paperclip, Send, Mic, X, Sun, Moon, FileText 
 } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { apiRequest } from '../services/api';
@@ -31,16 +31,14 @@ const ChatWindow = ({
   const recordingIntervalRef = useRef(null);
   const isCancelledRef = useRef(false);
 
-  // 🚀 തിരുത്തിയ ഭാഗം: Render-ലെ നിങ്ങളുടെ യഥാർത്ഥ ബാക്കെൻഡ് URL കൊടുത്തു 
   const BACKEND_URL = 'https://rentnest-backend-civ9.onrender.com'; 
 
-  // ബാക്ക്എൻഡിൽ നിന്നുള്ള ഫയൽ ലിങ്കുകൾ ശരിയാക്കാനുള്ള ഫംഗ്ഷൻ
+  // Safely join backend URL without double slashes
   const getMediaUrl = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
-    // URL-ൽ /api എന്നുണ്ടെങ്കിൽ അത് ഒഴിവാക്കി നേരിട്ട് ഫയൽ എടുക്കാൻ
-    const cleanUrl = url.replace('/api', '');
-    return `${BACKEND_URL}${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`;
+    const cleanUrl = url.replace(/^\/api/, '').replace(/^\//, '');
+    return `${BACKEND_URL}/${cleanUrl}`;
   };
 
   const getUserId = (userObj) => {
@@ -52,10 +50,21 @@ const ChatWindow = ({
   const activeChatId = activeChat ? getUserId(activeChat) : null;
   const currentMessages = activeChatId ? (chatHistory[activeChatId] || []) : [];
 
+  // Cleanup active audio tracks & intervals if component unmounts mid-recording
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
+  // Auto-scroll strictly bound to message count changes
   useEffect(() => {
     setShowEmojiPicker(false);
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeChatId, currentMessages]);
+  }, [activeChatId, currentMessages.length]);
 
   const formatTime = (dateString) => {
     if (!dateString) return '';
@@ -66,7 +75,7 @@ const ChatWindow = ({
     setNewMessage(prev => prev + emojiObject.emoji);
   };
 
-  // 📷 FILE / IMAGE / VIDEO UPLOAD HANDLER
+  // 📷 FILE / PDF UPLOAD
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file || !activeChatId) return;
@@ -80,14 +89,23 @@ const ChatWindow = ({
         body: formData 
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload Failed: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Upload Failed: ${response.status}`);
       
       const data = await response.json();
       if (data.success) {
-        const fileType = file.type.startsWith('video/') ? 'video' : 'image';
-        const msgText = fileType === 'video' ? '🎥 Video' : '📷 Image';
+        let fileType = 'file';
+        let msgText = '📎 File';
+
+        if (file.type.startsWith('image/')) {
+          fileType = 'image';
+          msgText = '📷 Image';
+        } else if (file.type.startsWith('video/')) {
+          fileType = 'video';
+          msgText = '🎥 Video';
+        } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          fileType = 'pdf';
+          msgText = '📄 PDF Document';
+        }
 
         const messageData = {
           receiverId: activeChatId,
@@ -109,21 +127,22 @@ const ChatWindow = ({
            }));
 
            setContacts((prevContacts) => {
-             const filtered = prevContacts.filter((c) => getUserId(c) !== activeChatId);
-             const existing = prevContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
+             const safeContacts = prevContacts || [];
+             const filtered = safeContacts.filter((c) => getUserId(c) !== activeChatId);
+             const existing = safeContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
              return [{ ...existing, lastMessage: msgText, time: 'Just now' }, ...filtered];
            });
         }
       }
     } catch (err) { 
       console.error("File Upload error:", err.message); 
-      alert("Failed to upload file. Please check console for details.");
+      alert("Failed to upload file. Please check your connection.");
     } finally {
       e.target.value = null; 
     }
   };
 
-  // 🎙️ AUDIO RECORDING HANDLERS
+  // 🎙️ AUDIO RECORDING
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -133,17 +152,15 @@ const ChatWindow = ({
       isCancelledRef.current = false; 
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
+        if (e.data && e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop());
-
         if (isCancelledRef.current) return;
 
-        // 🚀 തിരുത്തിയ ഭാഗം: ബ്രൗസറിന് സപ്പോർട്ട് ചെയ്യുന്ന ഓഡിയോ ഫോർമാറ്റ് സ്വയം തിരഞ്ഞെടുക്കാൻ
         const mimeType = mediaRecorder.mimeType || 'audio/webm';
         const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
@@ -153,13 +170,12 @@ const ChatWindow = ({
 
         try {
           const response = await apiRequest('/messages/upload', { method: 'POST', body: formData });
-          
-          if (!response.ok) throw new Error(`Server returned status ${response.status}`);
+          if (!response.ok) throw new Error(`Status ${response.status}`);
 
           const data = await response.json();
           if (data.success) {
             const messageData = {
-              receiverId: activeChatId, text: '🎙️ Audio Message', messageType: 'audio', fileUrl: data.fileUrl
+              receiverId: activeChatId, text: '🎙️ Voice Message', messageType: 'audio', fileUrl: data.fileUrl
             };
             const res = await apiRequest('/messages', { method: 'POST', body: messageData });
             const savedData = await res.json();
@@ -168,12 +184,15 @@ const ChatWindow = ({
                const savedMessage = { ...savedData.data, senderId: currentUserId, receiverId: activeChatId };
                if (socket) socket.emit('send-message', savedMessage);
                
-               setChatHistory((prev) => ({ ...prev, [activeChatId]: [...(prev[activeChatId] || []), savedMessage] }));
+               setChatHistory((prev) => ({ 
+                 ...prev, [activeChatId]: [...(prev[activeChatId] || []), savedMessage] 
+               }));
 
                setContacts((prevContacts) => {
-                 const filtered = prevContacts.filter((c) => getUserId(c) !== activeChatId);
-                 const existing = prevContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
-                 return [{ ...existing, lastMessage: '🎙️ Audio Message', time: 'Just now' }, ...filtered];
+                 const safeContacts = prevContacts || [];
+                 const filtered = safeContacts.filter((c) => getUserId(c) !== activeChatId);
+                 const existing = safeContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
+                 return [{ ...existing, lastMessage: '🎙️ Voice Message', time: 'Just now' }, ...filtered];
                });
             }
           }
@@ -189,7 +208,7 @@ const ChatWindow = ({
       recordingIntervalRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
 
     } catch (err) {
-      alert("Please allow microphone permissions to record voice messages.");
+      alert("Please enable microphone permissions in your browser settings.");
     }
   };
 
@@ -208,11 +227,11 @@ const ChatWindow = ({
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
-    clearInterval(recordingIntervalRef.current);
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
     setRecordingTime(0);
   };
 
-  // ✉️ SEND TEXT MESSAGE HANDLER
+  // ✉️ SEND TEXT
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentUserId || !activeChatId) return;
@@ -227,11 +246,14 @@ const ChatWindow = ({
       text: messageText, messageType: 'text', createdAt: new Date().toISOString(), status: 'sent'
     };
 
-    setChatHistory((prev) => ({ ...prev, [activeChatId]: [...(prev[activeChatId] || []), tempMessage] }));
+    setChatHistory((prev) => ({ 
+      ...prev, [activeChatId]: [...(prev[activeChatId] || []), tempMessage] 
+    }));
 
     setContacts((prevContacts) => {
-      const filtered = prevContacts.filter((c) => getUserId(c) !== activeChatId);
-      const existing = prevContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
+      const safeContacts = prevContacts || [];
+      const filtered = safeContacts.filter((c) => getUserId(c) !== activeChatId);
+      const existing = safeContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
       return [{ ...existing, lastMessage: messageText, time: 'Just now' }, ...filtered];
     });
 
@@ -241,7 +263,6 @@ const ChatWindow = ({
       });
       
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
       const data = await response.json();
 
       if (data.success) {
@@ -249,7 +270,7 @@ const ChatWindow = ({
         if (socket) socket.emit('send-message', savedMessage);
         
         setChatHistory((prev) => ({
-          ...prev, [activeChatId]: prev[activeChatId].map(msg => msg._id === tempId ? savedMessage : msg)
+          ...prev, [activeChatId]: (prev[activeChatId] || []).map(msg => msg._id === tempId ? savedMessage : msg)
         }));
       }
     } catch (error) { 
@@ -294,7 +315,7 @@ const ChatWindow = ({
           <button onClick={() => handleStartCall('audio')} className={`p-2 ${theme.iconHover} rounded-full transition-colors`} title="Audio Call">
             <Phone size={20} />
           </button>
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 ${theme.iconHover} rounded-full transition-colors`} title="Theme">
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 ${theme.iconHover} rounded-full transition-colors`} title="Toggle Theme">
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
@@ -308,11 +329,11 @@ const ChatWindow = ({
           
           return (
             <div key={msg._id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-1`}>
-              <div className={`max-w-[85%] sm:max-w-[70%] w-fit relative px-3 pt-1.5 pb-2 text-[15px] shadow-sm ${
-                isMyMessage ? `${theme.msgMine} rounded-lg rounded-tr-none` : `${theme.msgOther} rounded-lg rounded-tl-none`   
+              <div className={`max-w-[85%] sm:max-w-[70%] min-w-[85px] relative px-3 pt-1.5 pb-5 text-[15px] shadow-sm break-words ${
+                isMyMessage ? `${theme.msgMine} rounded-xl rounded-tr-none` : `${theme.msgOther} rounded-xl rounded-tl-none`   
               }`}>
                 {(msg.messageType === 'call' || msg.callDetails?.callType) ? (
-                  <div className="flex items-center gap-3 pr-8 pb-2 mt-1">
+                  <div className="flex items-center gap-3 pr-4 pb-1 mt-1">
                     <div className={`p-3 rounded-full ${isMyMessage ? 'bg-black/10' : 'bg-gray-500/10'}`}>
                       {msg.callDetails?.callType === 'video' ? <Video size={20} /> : <Phone size={20} />}
                     </div>
@@ -324,32 +345,56 @@ const ChatWindow = ({
                     </div>
                   </div>
                 ) : msg.messageType === 'audio' ? (
-                  <div className="pt-1 pb-4 pr-4">
-                     <audio controls className="max-w-[200px] sm:max-w-[250px] h-[40px] outline-none" src={getMediaUrl(msg.fileUrl)}>
-                        Your browser does not support the audio element.
+                  <div className="pt-1 pb-1 pr-2">
+                     <audio 
+                       key={msg._id || msg.fileUrl || index} 
+                       controls 
+                       preload="auto"
+                       className="max-w-[200px] sm:max-w-[250px] h-[40px] outline-none"
+                     >
+                       <source src={getMediaUrl(msg.fileUrl)} />
+                       Your browser does not support the audio element.
                      </audio>
                   </div>
                 ) : msg.messageType === 'video' ? (
-                  <div className="pb-4 pt-1">
-                     <video controls className="rounded-md max-w-full h-auto max-h-[250px] outline-none">
+                  <div className="pb-2 pt-1">
+                     <video controls className="rounded-md max-w-full h-auto max-h-[250px] outline-none bg-black/20">
                         <source src={getMediaUrl(msg.fileUrl)} />
                         Your browser does not support the video tag.
                      </video>
                   </div>
                 ) : msg.messageType === 'image' ? (
-                  <div className="pb-4 pt-1">
+                  <div className="pb-2 pt-1">
                      <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer">
-                       <img src={getMediaUrl(msg.fileUrl)} alt="Uploaded" className="rounded-md max-w-full h-auto max-h-[250px] object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                       <img src={getMediaUrl(msg.fileUrl)} alt="Uploaded content" className="rounded-md max-w-full h-auto max-h-[250px] object-cover cursor-pointer hover:opacity-90 transition-opacity" />
                      </a>
                   </div>
+                ) : msg.messageType === 'pdf' || msg.messageType === 'file' ? (
+                  <div className="pb-2 pt-1 flex items-center gap-2">
+                    <div className="p-2.5 bg-black/10 rounded-lg text-red-500">
+                      <FileText size={22} />
+                    </div>
+                    <div className="flex flex-col min-w-0 pr-4">
+                      <a 
+                        href={getMediaUrl(msg.fileUrl)} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-sm font-semibold underline truncate hover:opacity-80"
+                      >
+                        {msg.fileUrl?.split('/').pop() || 'Document'}
+                      </a>
+                      <span className="text-[10px] uppercase opacity-60">PDF Document</span>
+                    </div>
+                  </div>
                 ) : (
-                  <span className="whitespace-pre-wrap break-words text-left leading-relaxed">{msg.text}</span>
+                  <div className="whitespace-pre-wrap leading-relaxed pr-1">
+                    {msg.text}
+                  </div>
                 )}
                 
-                <span className="inline-block w-[68px] sm:w-[75px] h-1 select-none pointer-events-none"></span>
-                <div className={`text-[11px] ${theme.textSecondary} flex items-center gap-1 absolute bottom-1 right-2 select-none`}>
+                <div className={`text-[10.5px] ${theme.textSecondary} flex items-center gap-1 absolute bottom-1 right-2 select-none`}>
                   <span>{msg.time || formatTime(msg.createdAt)}</span>
-                  {isMyMessage && <CheckCheck size={16} className={tickColor} />}
+                  {isMyMessage && <CheckCheck size={15} className={tickColor} />}
                 </div>
               </div>
             </div>
@@ -368,7 +413,6 @@ const ChatWindow = ({
 
       {/* Input Form */}
       <form onSubmit={handleSendMessage} className={`px-2 sm:px-4 py-3 ${theme.inputBar} flex items-center gap-2 sm:gap-3 shrink-0`}>
-        
         {!isRecording && (
           <>
             {showEmojiPicker ? (
@@ -390,7 +434,7 @@ const ChatWindow = ({
         )}
 
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between bg-red-100 text-red-600 px-4 py-2 rounded-full w-full">
+          <div className="flex-1 flex items-center justify-between bg-red-100 text-red-600 px-4 py-2 rounded-full w-full animate-pulse">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
               <span className="text-sm font-bold">{recordingTime}s</span>

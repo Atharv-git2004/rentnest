@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Phone, Video, MessageSquare, ArrowLeft, PhoneOff, 
+  Search, Phone, Video, MessageSquare, PhoneOff, 
   PhoneIncoming, Home as HomeIcon, User, Sun, Moon
 } from 'lucide-react';
 
@@ -9,14 +9,20 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
 import VideoCall from '../components/VideoCall';
-import ChatWindow from '../components/ChatWindow'; // 💡 പുതിയ ഫയൽ ഇവിടെ ഇമ്പോർട്ട് ചെയ്തു!
+import ChatWindow from '../components/ChatWindow'; 
 
 const Chats = () => {
   const navigate = useNavigate();
   const socket = useSocket();
   const { user } = useAuth(); 
-  
-  const currentUserId = user ? (user._id || user.id || user).toString().trim() : '';
+
+  const getUserId = useCallback((userObj) => {
+    if (!userObj) return '';
+    if (typeof userObj === 'object') return (userObj._id || userObj.id || '').toString().trim();
+    return userObj.toString().trim();
+  }, []);
+
+  const currentUserId = getUserId(user);
 
   const [contacts, setContacts] = useState([]); 
   const [chatHistory, setChatHistory] = useState({}); 
@@ -25,6 +31,11 @@ const Chats = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   const activeChatIdRef = useRef(null);
+  const activeChatId = activeChat ? getUserId(activeChat) : null;
+
+  useEffect(() => { 
+    activeChatIdRef.current = activeChatId; 
+  }, [activeChatId]);
 
   const [callData, setCallData] = useState({
     isActive: false, isReceiving: false, signal: null, partnerId: null, callType: 'video', startTime: null 
@@ -44,16 +55,6 @@ const Chats = () => {
     iconColor: 'text-[#54656f]', iconHover: 'hover:text-[#111b21]',
   };
 
-  const getUserId = (userObj) => {
-    if (!userObj) return '';
-    if (typeof userObj === 'object') return (userObj._id || userObj.id || '').toString().trim();
-    return userObj.toString().trim();
-  };
-
-  const activeChatId = activeChat ? getUserId(activeChat) : null;
-  useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
-
-  // Fetch Contacts
   useEffect(() => {
     const fetchConversations = async () => {
       if (!currentUserId) return;
@@ -61,12 +62,11 @@ const Chats = () => {
         const res = await apiRequest('/messages/conversations', { method: 'GET' });
         const data = await res.json();
         if (data.success) setContacts(data.data);
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error("Contacts fetch error:", err); }
     };
     fetchConversations();
   }, [currentUserId]);
 
-  // Fetch single chat messages
   useEffect(() => {
     if (!activeChatId || !currentUserId) return;
     const fetchMessages = async () => {
@@ -77,12 +77,11 @@ const Chats = () => {
           setChatHistory(prev => ({ ...prev, [activeChatId]: data.data }));
           if (socket) socket.emit('mark-messages-read', { senderId: activeChatId, receiverId: currentUserId });
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error("Messages fetch error:", err); }
     };
     fetchMessages();
   }, [activeChatId, currentUserId, socket]);
 
-  // Socket Listeners
   useEffect(() => {
     if (!socket || !currentUserId) return;
 
@@ -103,7 +102,9 @@ const Chats = () => {
         const newUnreadCount = isChatOpen ? 0 : (existing?.unreadCount || 0) + 1;
 
         let lastMsgText = message.text;
-        if (message.messageType === 'call') lastMsgText = message.callDetails?.callType === 'video' ? '📹 Video Call' : '📞 Audio Call';
+        if (message.messageType === 'call') {
+          lastMsgText = message.callDetails?.callType === 'video' ? '📹 Video Call' : '📞 Audio Call';
+        }
 
         const updatedContact = existing 
           ? { ...existing, lastMessage: lastMsgText, time: 'Just now', unreadCount: newUnreadCount }
@@ -145,15 +146,72 @@ const Chats = () => {
       socket.off('incoming-call', handleIncomingCall);
       socket.off('call-ended', handleCallEnded);
     };
-  }, [socket, currentUserId]); 
+  }, [socket, currentUserId, getUserId]); 
 
   const handleSelectChat = (contact) => {
     setActiveChat(contact);
     const contactId = getUserId(contact);
     setContacts(prev => prev.map(c => getUserId(c) === contactId ? { ...c, unreadCount: 0 } : c));
+    
+    if (socket && currentUserId) {
+      socket.emit('mark-messages-read', { senderId: contactId, receiverId: currentUserId });
+    }
   };
 
-  // WebRTC Call Handlers
+  const handleSendMessage = async (messageText, type = 'text') => {
+    if (!messageText.trim() || !activeChatId || !currentUserId) return;
+
+    const optimisticMsg = {
+      _id: `temp-${Date.now()}`,
+      senderId: currentUserId,
+      receiverId: activeChatId,
+      text: messageText.trim(),
+      messageType: type,
+      status: 'sent',
+      createdAt: new Date().toISOString(),
+    };
+
+    setChatHistory(prev => ({
+      ...prev,
+      [activeChatId]: [...(prev[activeChatId] || []), optimisticMsg]
+    }));
+
+    setContacts(prevContacts => {
+      const filtered = prevContacts.filter(c => getUserId(c) !== activeChatId);
+      const targetContact = prevContacts.find(c => getUserId(c) === activeChatId) || activeChat;
+      
+      return [{
+        ...targetContact,
+        lastMessage: type === 'text' ? messageText.trim() : `📸 ${type}`,
+        time: 'Just now',
+        unreadCount: 0
+      }, ...filtered];
+    });
+
+    if (socket) {
+      socket.emit('send-message', {
+        senderId: currentUserId,
+        receiverId: activeChatId,
+        text: messageText.trim(),
+        messageType: type
+      });
+    }
+
+    try {
+      await apiRequest('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiverId: activeChatId,
+          text: messageText.trim(),
+          messageType: type
+        })
+      });
+    } catch (err) {
+      console.error("Failed to save message to database:", err);
+    }
+  };
+
   const handleStartCall = (type = 'video') => {
     if (!socket || !activeChatId) return;
     setCallData({ isActive: true, isReceiving: false, signal: null, partnerId: activeChatId, callType: type, startTime: new Date() });
@@ -172,7 +230,6 @@ const Chats = () => {
     <div className={`flex w-full h-[100dvh] md:h-screen md:p-4 justify-center ${theme.appBg} transition-colors duration-300`}>
       <div className={`flex w-full max-w-[1600px] h-full ${theme.panelBg} md:rounded-xl shadow-xl overflow-hidden relative`}>
         
-        {/* 📞 INCOMING CALL MODAL */}
         {callData.isReceiving && !callData.isActive && (
           <div className="absolute inset-0 bg-[#0b141a]/95 z-50 flex flex-col items-center justify-center text-[#e9edef] animate-fade-in">
             <div className="w-24 h-24 bg-[#00a884] rounded-full flex items-center justify-center mb-6 animate-bounce">
@@ -186,12 +243,10 @@ const Chats = () => {
           </div>
         )}
 
-        {/* 📞 ACTIVE CALL COMPONENT */}
         {callData.isActive && (
           <VideoCall socket={socket} currentUserId={currentUserId} activeChatId={callData.partnerId} incomingSignal={callData.signal} onEndCall={handleEndOrRejectCall} callType={callData.callType} />
         )}
         
-        {/* --- LEFT SIDEBAR (CONTACTS) --- */}
         <div className={`flex flex-col w-full md:w-[350px] lg:w-[400px] h-full border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
           <div className={`${theme.headerBg} p-3.5 flex justify-between items-center ${theme.iconColor}`}>
              <h2 className={`text-[20px] font-semibold ${theme.textPrimary}`}>Chats</h2>
@@ -234,7 +289,6 @@ const Chats = () => {
             })}
           </div>
 
-          {/* Mobile Bottom Bar */}
           <div className={`md:hidden flex justify-around py-2 border-t ${theme.border} ${theme.panelBg}`}>
             <button onClick={() => navigate('/')} className="text-gray-500 flex flex-col items-center"><HomeIcon size={20} /><span className="text-[10px]">Home</span></button>
             <button className="text-[#00a884] flex flex-col items-center"><MessageSquare size={20} /><span className="text-[10px]">Chats</span></button>
@@ -242,11 +296,19 @@ const Chats = () => {
           </div>
         </div>
 
-        {/* --- RIGHT PANEL (IMPORTED COMPONENT) --- */}
         <ChatWindow 
-          activeChat={activeChat} setActiveChat={setActiveChat} currentUserId={currentUserId} socket={socket}
-          chatHistory={chatHistory} setChatHistory={setChatHistory} setContacts={setContacts} handleStartCall={handleStartCall}
-          theme={theme} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
+          activeChat={activeChat} 
+          setActiveChat={setActiveChat} 
+          currentUserId={currentUserId} 
+          socket={socket}
+          chatHistory={chatHistory} 
+          setChatHistory={setChatHistory} 
+          setContacts={setContacts} 
+          handleStartCall={handleStartCall}
+          onSendMessage={handleSendMessage}
+          theme={theme} 
+          isDarkMode={isDarkMode} 
+          setIsDarkMode={setIsDarkMode}
         />
 
       </div>
