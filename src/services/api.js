@@ -3,23 +3,22 @@
  * എല്ലാ ബാക്ക്-എൻഡ് കോളുകൾക്കും വേണ്ടി ഉപയോഗിക്കുന്ന കോമൺ ഫങ്ഷൻ
  */
 
-// 💡 ഇവിടെ localhost മാറ്റി പുതിയ Render ലിങ്ക് കൊടുത്തു 
+// 💡 നിങ്ങളുടെ ബാക്കെൻഡ് URL കൃത്യമാണെന്ന് ഉറപ്പുവരുത്തുക
 const BASE_URL = import.meta.env?.VITE_API_URL || 'https://rentnest-backend-civ9.onrender.com/api';
 
 export const apiRequest = async (endpoint, options = {}) => {
-  const url = `${BASE_URL}${endpoint}`;
+  // Ensure endpoint starts with a slash
+  const safeEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${BASE_URL}${safeEndpoint}`;
   
-  const headers = {
-    ...options.headers,
-  };
+  const headers = { ...options.headers };
 
-  // 💡 മാറ്റം 1: ബോഡി ഒരു പ്ലെയിൻ ഒബ്‌ജക്റ്റ് ആണെങ്കിൽ ഓട്ടോമാറ്റിക് ആയി stringify ചെയ്യും.
-  if (options.body && !(options.body instanceof FormData) && typeof options.body === 'object') {
+  // 💡 ഫോം ഡാറ്റ ആണെങ്കിൽ Content-Type ബ്രൗസർ സ്വയം സെറ്റ് ചെയ്യണം
+  // അല്ലാത്ത പക്ഷം JSON ആയി മാറ്റുക
+  if (options.body instanceof FormData) {
+    delete headers['Content-Type']; 
+  } else if (options.body && typeof options.body === 'object') {
     options.body = JSON.stringify(options.body);
-  }
-
-  // FormData അല്ലാത്ത പക്ഷം മാത്രം 'application/json' സെറ്റ് ചെയ്യുന്നു.
-  if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 
@@ -36,6 +35,9 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
   }
 
+  // ഡീബഗ്ഗിങ്ങിന് വേണ്ടി മാത്രം (URL കൃത്യമാണോ എന്ന് നോക്കാൻ)
+  console.log(`🚀 API Request: ${options.method || 'GET'} ${url}`);
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -45,16 +47,18 @@ export const apiRequest = async (endpoint, options = {}) => {
     return response;
 
   } catch (error) {
-    console.error("API Request Error:", error);
+    console.error(`❌ API Request Error on ${endpoint}:`, error);
     
-    // 💡 മാറ്റം 2 (പ്രധാനം): നെറ്റ്‌വർക്ക് എറർ ഉണ്ടായാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ 
+    // നെറ്റ്‌വർക്ക് എറർ ഉണ്ടായാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ 
     return {
       ok: false,
       status: 500,
       json: async () => ({ 
+        success: false,
         message: "Network connection failed. Server might be down.", 
         error: error.message 
-      })
+      }),
+      text: async () => "Network connection failed."
     };
   }
 };
