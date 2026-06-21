@@ -4,13 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, MapPin, IndianRupee, Bed, Bath, 
   Sparkles, Check, Info, ShieldCheck, MessageSquare, 
-  Send, X, Phone 
+  Send, X, Phone, Video // 💡 Video ഐക്കൺ പുതിയതായി ചേർത്തു
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 
 // Socket & Auth ഇമ്പോർട്ട് ചെയ്യുന്നു
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
+
+// 💡 നിങ്ങളുടെ VideoCall കമ്പോണൻ്റ് ഇമ്പോർട്ട് ചെയ്യുക (പാത്ത് കൃത്യമാണോ എന്ന് ഉറപ്പുവരുത്തുക)
+import VideoCall from '../components/VideoCall'; 
 
 const BACKEND_URL = 'http://localhost:5000'; 
 
@@ -40,6 +43,11 @@ const PropertyDetails = () => {
   const [newMessage, setNewMessage] = useState('');
   
   const messagesEndRef = useRef(null);
+
+  // 💡 Call States
+  const [isCalling, setIsCalling] = useState(false);
+  const [callType, setCallType] = useState('audio');
+  const [incomingCallData, setIncomingCallData] = useState(null);
 
   const ownerId = property?.owner?._id || property?.ownerId || property?.owner;
 
@@ -72,7 +80,7 @@ const PropertyDetails = () => {
     fetchPropertyDetails();
   }, [id]);
 
-  // 💡 1️⃣ [NEW] ചാറ്റ് ബോക്സ് തുറക്കുമ്പോൾ ഈ ഓണറുമായുള്ള പഴയ മെസ്സേജുകൾ ഡാറ്റാബേസിൽ നിന്ന് ലോഡ് ചെയ്യുന്നു
+  // ചാറ്റ് ഹിസ്റ്ററി ഡാറ്റാബേസിൽ നിന്ന് ലോഡ് ചെയ്യുന്നു
   useEffect(() => {
     if (!isChatOpen || !ownerId || !currentUserId) return;
 
@@ -84,7 +92,6 @@ const PropertyDetails = () => {
           if (resData.data && resData.data.length > 0) {
             setMessages(resData.data);
           } else {
-            // പഴയ മെസ്സേജുകൾ ഇല്ലെങ്കിൽ മാത്രം ഡിഫോൾട്ട് വെൽക്കം മെസ്സേജ് കാണിക്കാം
             setMessages([
               { id: 'welcome', sender: 'owner', text: 'Hello! Thank you for showing interest in my property. How can I help you today?' }
             ]);
@@ -98,7 +105,7 @@ const PropertyDetails = () => {
     fetchChatHistory();
   }, [isChatOpen, ownerId, currentUserId]);
 
-  // 2. ഓണർ അയക്കുന്ന ലൈവ് മെസ്സേജുകൾ സോക്കറ്റ് വഴി സ്വീകരിക്കാൻ
+  // Socket വഴിയുള്ള ഇൻകമിംഗ് മെസ്സേജുകളും കോളുകളും കേൾക്കാൻ
   useEffect(() => {
     if (!socket || !ownerId) return;
 
@@ -109,19 +116,28 @@ const PropertyDetails = () => {
       }
     };
 
+    const incomingCallHandler = (data) => {
+      // നാം കോൾ ചെയ്തുകൊണ്ടിരിക്കുകയല്ലെങ്കിൽ മാത്രം ഇൻകമിംഗ് കോൾ കാണിക്കുക
+      if (!isCalling) {
+        setIncomingCallData(data);
+      }
+    };
+
     socket.on('receive-message', receiveMessageHandler);
+    socket.on('incoming-call', incomingCallHandler);
 
     return () => {
       socket.off('receive-message', receiveMessageHandler);
+      socket.off('incoming-call', incomingCallHandler);
     };
-  }, [socket, ownerId]);
+  }, [socket, ownerId, isCalling]);
 
   // ചാറ്റ് എപ്പോഴും താഴേക്ക് സ്ക്രോൾ ചെയ്യാൻ
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isChatOpen]);
 
-  // 💡 3️⃣ [NEW] മെസ്സേജ് അയക്കുമ്പോൾ അത് ഡാറ്റാബേസിലേക്ക് സേവ് ചെയ്യുകയും സോക്കറ്റ് വഴി ലൈവ് ആക്കുകയും ചെയ്യുന്നു
+  // മെസ്സേജ് അയക്കാൻ
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -132,7 +148,6 @@ const PropertyDetails = () => {
     }
 
     try {
-      // ഡാറ്റാബേസിലേക്ക് സേവ് ചെയ്യാൻ ബാക്ക്-എൻഡ് API വിളിക്കുന്നു
       const res = await apiRequest('/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,17 +163,54 @@ const PropertyDetails = () => {
       if (res.ok && resData.success) {
         const savedMessage = resData.data;
 
-        // സോക്കറ്റ് വഴി ഓണറുടെ സ്ക്രീനിലേക്ക് ലൈവ് ആയി അയക്കുന്നു
         if (socket) {
           socket.emit('send-message', savedMessage);
         }
 
-        // നമ്മുടെ സ്ക്രീനിലെ ചാറ്റ് ബോക്സ് അപ്ഡേറ്റ് ചെയ്യുന്നു
         setMessages((prev) => [...prev, savedMessage]);
         setNewMessage('');
       }
     } catch (err) {
       console.error("Error sending message:", err);
+    }
+  };
+
+  // 💡 [NEW] കോൾ തുടങ്ങാനുള്ള ഫംഗ്ഷൻ
+  const handleStartCall = (type) => {
+    if (!user) {
+      alert("Please login to call the owner.");
+      return;
+    }
+    setCallType(type);
+    setIsCalling(true);
+  };
+
+  // 💡 [NEW] കോൾ തീരുമ്പോൾ കോൾ ഡ്യൂറേഷൻ ഡാറ്റാബേസിൽ സേവ് ചെയ്യുന്നു
+  const handleEndCall = async (duration) => {
+    setIsCalling(false);
+    setIncomingCallData(null);
+
+    // സമയം 0 ആണെങ്കിൽ അത് മിസ്ഡ് കോൾ ആയി കണക്കാക്കാം
+    try {
+      const res = await apiRequest('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: id,
+          receiverId: ownerId,
+          messageType: 'call',
+          callDetails: { callType, duration }
+        })
+      });
+
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        const savedMessage = resData.data;
+        if (socket) socket.emit('send-message', savedMessage);
+        setMessages((prev) => [...prev, savedMessage]);
+      }
+    } catch (error) {
+      console.error("Error saving call log:", error);
     }
   };
 
@@ -193,6 +245,49 @@ const PropertyDetails = () => {
   return (
     <div className="min-h-screen bg-white pb-16 font-sans text-slate-900 antialiased selection:bg-slate-900 selection:text-white">
       
+      {/* 💡 IN-APP VIDEO/AUDIO CALL COMPONENT */}
+      {isCalling && (
+        <VideoCall 
+          socket={socket}
+          currentUserId={currentUserId}
+          activeChatId={ownerId}
+          callType={callType}
+          incomingSignal={incomingCallData?.signal || null}
+          onEndCall={handleEndCall}
+        />
+      )}
+
+      {/* 💡 INCOMING CALL MODAL */}
+      {incomingCallData && !isCalling && (
+        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-2xl text-center shadow-2xl animate-bounce">
+            <div className="w-20 h-20 bg-slate-900 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 animate-pulse">
+              {incomingCallData.from.slice(-2).toUpperCase()}
+            </div>
+            <h3 className="text-xl font-bold mb-2">Incoming {incomingCallData.callType} Call</h3>
+            <p className="text-slate-500 mb-6">Owner is calling you...</p>
+            <div className="flex gap-4 justify-center">
+              <button 
+                onClick={() => {
+                  setCallType(incomingCallData.callType);
+                  setIsCalling(true);
+                }} 
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors">
+                Accept
+              </button>
+              <button 
+                onClick={() => {
+                  setIncomingCallData(null);
+                  if(socket) socket.emit('end-call', { to: incomingCallData.from });
+                }} 
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors">
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* NAVBAR */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex justify-between items-center">
         <button onClick={() => navigate(-1)} className="group flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
@@ -291,9 +386,17 @@ const PropertyDetails = () => {
               <button onClick={() => setIsChatOpen(true)} className="w-full bg-slate-950 hover:bg-slate-900 text-white font-bold py-3.5 px-4 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm shadow-slate-950/10">
                 <MessageSquare size={16} /> Chat With Owner
               </button>
-              <a href={`tel:${property.ownerPhone || ownerData.phone || ''}`} className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-4 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-2">
-                <Phone size={16} /> Call Owner
-              </a>
+
+              {/* 💡 തിരുത്തിയ കോൾ ബട്ടണുകൾ */}
+              <div className="flex gap-2">
+                <button onClick={() => handleStartCall('audio')} className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <Phone size={16} /> Audio Call
+                </button>
+                <button onClick={() => handleStartCall('video')} className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <Video size={16} /> Video Call
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
@@ -318,9 +421,17 @@ const PropertyDetails = () => {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setIsChatOpen(false)} className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handleStartCall('audio')} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white">
+                    <Phone size={16} />
+                  </button>
+                  <button onClick={() => handleStartCall('video')} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white">
+                    <Video size={16} />
+                  </button>
+                  <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white ml-2">
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
@@ -331,14 +442,21 @@ const PropertyDetails = () => {
                 </div>
 
                 {messages.map((msg, index) => {
-                  // Mongoose ഡാറ്റയും ലോക്കൽ സിസ്റ്റം ഡാറ്റയും കൃത്യമായി തിരിച്ചറിയാൻ
                   const msgSenderId = msg.senderId?._id || msg.senderId;
                   const isMyMessage = msg.sender === 'user' || (msgSenderId && msgSenderId.toString() === currentUserId?.toString());
 
                   return (
                     <div key={msg._id || msg.id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs font-semibold shadow-2xs ${isMyMessage ? 'bg-slate-950 text-white rounded-tr-none' : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'}`}>
-                        <p>{msg.text}</p>
+                        {/* 💡 Call Logs ചാറ്റിൽ കാണിക്കാൻ */}
+                        {msg.messageType === 'call' ? (
+                          <div className="flex items-center gap-2">
+                            {msg.callDetails?.callType === 'video' ? <Video size={14} /> : <Phone size={14} />}
+                            <span>{msg.callDetails?.callType} Call ended ({msg.callDetails?.duration || 0}s)</span>
+                          </div>
+                        ) : (
+                          <p>{msg.text}</p>
+                        )}
                       </div>
                     </div>
                   );
