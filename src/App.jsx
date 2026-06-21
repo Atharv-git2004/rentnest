@@ -8,7 +8,8 @@ import { useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import CallModal from './components/CallModal';
-import BottomNavbar from './components/BottomNavbar'; // 💡 പുതിയ BottomNavbar ഇംപോർട്ട് ചെയ്തു
+import BottomNavbar from './components/BottomNavbar';
+import VideoCall from './components/VideoCall'; // 💡 വീഡിയോ കോൾ വിൻഡോ ഇവിടെ ഇംപോർട്ട് ചെയ്യുക
 
 // Pages
 import Home from './pages/Home';
@@ -45,7 +46,7 @@ const Navbar = () => {
           </span>
         </Link>
         
-        {/* DESKTOP NAVIGATION (മൊബൈലിൽ ഹൈഡ് ആകും) */}
+        {/* DESKTOP NAVIGATION */}
         <div className="hidden md:flex gap-6 font-semibold text-gray-600 text-sm">
           <Link to="/" className="hover:text-green-600 transition-colors">Home</Link>
           <Link to="/explore" className="hover:text-green-600 transition-colors">Explore</Link>
@@ -78,14 +79,26 @@ const Navbar = () => {
 // --- APP CONTENT COMPONENT ---
 const AppContent = () => {
   const [isCalling, setIsCalling] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false); // 💡 കോൾ ആക്റ്റീവ് ആണോ എന്ന് അറിയാൻ
+  const [callData, setCallData] = useState(null); // 💡 ഇൻകമിംഗ് കോൾ സിഗ്നൽ ഡാറ്റ സൂക്ഷിക്കാൻ
   const [callerName, setCallerName] = useState("Unknown Caller"); 
+  
   const socket = useSocket();
+  const { user } = useAuth(); // 💡 കറന്റ് യൂസർ ഐഡി എടുക്കാൻ
 
   useEffect(() => {
     if (socket) {
       const handleIncomingCall = (data) => {
-        console.log("Incoming Call:", data);
-        setCallerName(data?.callerName || "Owner"); 
+        console.log("Incoming Call Received:", data);
+        setCallerName(data?.callerName || "Unknown User"); 
+        
+        // സോക്കറ്റിൽ നിന്നും വരുന്ന മുഴുവൻ ഡാറ്റയും സ്റ്റേറ്റിലേക്ക് മാറ്റുന്നു
+        setCallData({
+          from: data.from,
+          signal: data.signalData,
+          callType: data.callType || 'video',
+          chatId: data.from
+        });
         setIsCalling(true);
       };
 
@@ -97,21 +110,42 @@ const AppContent = () => {
     }
   }, [socket]);
 
+  // കോൾ അക്സെപ്റ്റ് ചെയ്യുമ്പോൾ ഉള്ള ഫംഗ്ഷൻ
+  const handleAcceptCall = () => {
+    setIsCalling(false);
+    setIsCallActive(true);
+  };
+
+  // കോൾ റിജക്റ്റ് ചെയ്യുമ്പോഴും കട്ട് ചെയ്യുമ്പോഴും ഉള്ള ഫംഗ്ഷൻ
+  const handleEndCall = () => {
+    setIsCalling(false);
+    setIsCallActive(false);
+    setCallData(null);
+  };
+
   return (
-    // 💡 താഴെ pb-16 നൽകിയത് ശ്രദ്ധിക്കുക. മൊബൈലിൽ ബാറിനടിയിൽ കണ്ടന്റ് മറയാതിരിക്കാനാണ് ഇത്.
     <div className="flex flex-col min-h-screen bg-gray-50 pb-16 md:pb-0">
       <Navbar />
       
-      {/* കോൾ മോഡൽ */}
+      {/* 💡 ഇൻകമിംഗ് കോൾ വരുമ്പോൾ കാണിക്കുന്ന മോഡൽ */}
       <CallModal 
         isOpen={isCalling} 
         callerName={callerName} 
-        onAccept={() => {
-          console.log("Call Accepted");
-          setIsCalling(false);
-        }} 
-        onReject={() => setIsCalling(false)} 
+        onAccept={handleAcceptCall} 
+        onReject={handleEndCall} 
       />
+
+      {/* 💡 കോൾ അക്സെപ്റ്റ് ചെയ്താൽ സ്ക്രീനിന് മുകളിലായി VideoCall കമ്പോണന്റ് ലോഡ് ചെയ്യും */}
+      {isCallActive && callData && (
+        <VideoCall 
+          socket={socket}
+          currentUserId={user?._id || user?.id}
+          activeChatId={callData.from}
+          incomingSignal={callData.signal}
+          callType={callData.callType}
+          onEndCall={handleEndCall}
+        />
+      )}
 
       <div className="flex-grow">
         <Routes>
@@ -130,7 +164,6 @@ const AppContent = () => {
         </Routes>
       </div>
 
-      {/* 💡 ഇവിടെ BottomNavbar ചേർത്തു */}
       <BottomNavbar />
     </div>
   );

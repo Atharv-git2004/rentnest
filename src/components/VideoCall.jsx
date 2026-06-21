@@ -9,45 +9,68 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === 'audio'); 
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true); // 🔊 Speaker State
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
 
-  // 💡 കോൾ ടൈമിംഗ് ട്രാക്ക് ചെയ്യാൻ
   const startTimeRef = useRef(null);
-  
   const myVideo = useRef();
   const userVideo = useRef();
   const connectionRef = useRef();
+  const streamRef = useRef(null);
 
+  // 💡 Fix 1: Local Video Playback
   useEffect(() => {
     if (stream && myVideo.current) {
       myVideo.current.srcObject = stream;
+      myVideo.current.play().catch(err => console.warn("Local video play error:", err));
     }
   }, [stream, isVideoOff]);
 
+  // 💡 Fix 2: Remote Video Playback (Autoplay Policy Fix)
   useEffect(() => {
     if (remoteStream && userVideo.current) {
       userVideo.current.srcObject = remoteStream;
+      userVideo.current.play().catch(err => {
+        console.warn("Autoplay blocked by browser:", err);
+      });
     }
   }, [remoteStream, callAccepted]);
 
   useEffect(() => {
     let active = true;
 
-    // 💡 ഓഡിയോ കോൾ ആണെങ്കിൽ video: false ആക്കുന്നു
     const mediaConstraints = {
       video: callType === 'video',
       audio: true
     };
 
+    const handleCallAccepted = (signal) => {
+      setCallAccepted(true);
+      if (connectionRef.current && !connectionRef.current.destroyed) {
+        connectionRef.current.signal(signal);
+      }
+    };
+
     navigator.mediaDevices.getUserMedia(mediaConstraints)
       .then((currentStream) => {
-        if (!active) return;
+        if (!active) {
+          currentStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        streamRef.current = currentStream;
         setStream(currentStream);
 
+        // 💡 Fix 3: Added STUN Servers for better WebRTC Connection
         const peer = new Peer({ 
           initiator: !incomingSignal, 
           trickle: false, 
-          stream: currentStream 
+          stream: currentStream,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+          }
         });
 
         connectionRef.current = peer;
@@ -61,10 +84,12 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
         });
 
         peer.on('stream', (userStream) => {
-          setRemoteStream(userStream);
+          console.log("✅ Remote stream received!"); // Debug log
+          if (active) {
+            setRemoteStream(userStream);
+          }
         });
 
-        // 💡 കോൾ കണക്ട് ആകുമ്പോൾ സമയം നോട്ട് ചെയ്യുന്നു
         peer.on('connect', () => {
           startTimeRef.current = new Date();
         });
@@ -73,23 +98,25 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
           setCallAccepted(true);
           peer.signal(incomingSignal);
         } else {
-          socket.on('call-accepted', (signal) => {
-            setCallAccepted(true);
-            peer.signal(signal);
-          });
+          socket.on('call-accepted', handleCallAccepted);
         }
       })
       .catch(err => {
         console.error("Permission denied:", err);
-        onEndCall(0); 
+        if (active) onEndCall(0); 
       });
 
     return () => {
       active = false;
+      socket.off('call-accepted', handleCallAccepted);
+      
       if (connectionRef.current) connectionRef.current.destroy();
-      if (stream) stream.getTracks().forEach(track => track.stop());
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [incomingSignal, activeChatId, socket, currentUserId, callType]);
+  }, [incomingSignal, activeChatId, socket, currentUserId, callType, onEndCall]);
 
   const toggleMic = () => {
     if (stream && stream.getAudioTracks().length > 0) {
@@ -107,10 +134,9 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
     }
   };
 
-  // 🔊 Speaker ON/OFF ചെയ്യാനുള്ള ഫംഗ്ഷൻ
   const toggleSpeaker = () => {
     if (userVideo.current) {
-      userVideo.current.muted = isSpeakerOn; // ടോഗിൾ ചെയ്യുന്നു
+      userVideo.current.muted = isSpeakerOn; 
       setIsSpeakerOn(!isSpeakerOn);
     }
   };
@@ -122,9 +148,11 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
     console.log(`Call Duration: ${duration} seconds`);
 
     if (connectionRef.current) connectionRef.current.destroy();
-    if (stream) stream.getTracks().forEach(track => track.stop());
     
-    // 💡 കോൾ ടൈം ചാറ്റിൽ മെസ്സേജ് ആയി സേവ് ചെയ്യാൻ ഡ്യൂറേഷൻ കൂടി പാസ്സ് ചെയ്യുന്നു
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
     onEndCall(duration);
   };
 
@@ -142,7 +170,6 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
               </div>
               <div className="text-xl animate-pulse">On Audio Call...</div>
               
-              {/* 🔊 ഓഡിയോ കോൾ കേൾക്കാൻ വേണ്ടിയുള്ള ഹിഡൻ ടാഗ് ഇവിടെ ആഡ് ചെയ്തു */}
               <audio ref={userVideo} autoPlay playsInline muted={!isSpeakerOn} />
             </div>
           )
@@ -150,7 +177,6 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
           <div className="text-white text-2xl animate-pulse">Calling...</div>
         )}
 
-        {/* Local Video - വീഡിയോ കോളിന് മാത്രം കാണിക്കുന്നു */}
         {stream && callType === 'video' && (
           <div className="absolute top-6 right-6 w-32 h-48 bg-gray-850 rounded-xl overflow-hidden border-2 border-white shadow-lg z-10">
             {isVideoOff && (
@@ -168,26 +194,23 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
           </div>
         )}
 
-        {/* 🛠️ Control Bar */}
+        {/* Control Bar */}
         <div className="absolute bottom-10 flex gap-6 px-6 py-4 bg-slate-800/80 backdrop-blur-md rounded-full shadow-2xl z-20">
-          {/* Mute/Unmute Mic */}
+          
           <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
             {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
           </button>
 
-          {/* 🔊 New Speaker Button (Audio/Video രണ്ട് കോളിലും കാണിക്കും) */}
           <button onClick={toggleSpeaker} className={`p-4 rounded-full ${!isSpeakerOn ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
             {!isSpeakerOn ? <VolumeX size={24} /> : <Volume2 size={24} />}
           </button>
 
-          {/* Video Toggle */}
           {callType === 'video' && (
             <button onClick={toggleVideo} className={`p-4 rounded-full ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
               {isVideoOff ? <VideoOff size={24} /> : <VideoIcon size={24} />}
             </button>
           )}
 
-          {/* End Call Button */}
           <button onClick={leaveCall} className="p-4 bg-red-600 hover:bg-red-700 text-white rounded-full">
             <PhoneOff size={24} />
           </button>
