@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, MapPin, IndianRupee, Bed, Bath, 
   Sparkles, Check, Info, ShieldCheck, MessageSquare, 
-  Send, X, Phone, Video // 💡 Video ഐക്കൺ പുതിയതായി ചേർത്തു
+  Send, X, Phone, Video 
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 
@@ -12,7 +12,7 @@ import { apiRequest } from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 
-// 💡 നിങ്ങളുടെ VideoCall കമ്പോണൻ്റ് ഇമ്പോർട്ട് ചെയ്യുക (പാത്ത് കൃത്യമാണോ എന്ന് ഉറപ്പുവരുത്തുക)
+// VideoCall കമ്പോണൻ്റ് ഇമ്പോർട്ട് ചെയ്യുന്നു
 import VideoCall from '../components/VideoCall'; 
 
 const BACKEND_URL = 'http://localhost:5000'; 
@@ -44,7 +44,7 @@ const PropertyDetails = () => {
   
   const messagesEndRef = useRef(null);
 
-  // 💡 Call States
+  // Call States
   const [isCalling, setIsCalling] = useState(false);
   const [callType, setCallType] = useState('audio');
   const [incomingCallData, setIncomingCallData] = useState(null);
@@ -117,7 +117,6 @@ const PropertyDetails = () => {
     };
 
     const incomingCallHandler = (data) => {
-      // നാം കോൾ ചെയ്തുകൊണ്ടിരിക്കുകയല്ലെങ്കിൽ മാത്രം ഇൻകമിംഗ് കോൾ കാണിക്കുക
       if (!isCalling) {
         setIncomingCallData(data);
       }
@@ -175,7 +174,7 @@ const PropertyDetails = () => {
     }
   };
 
-  // 💡 [NEW] കോൾ തുടങ്ങാനുള്ള ഫംഗ്ഷൻ
+  // കോൾ തുടങ്ങാനുള്ള ഫംഗ്ഷൻ
   const handleStartCall = (type) => {
     if (!user) {
       alert("Please login to call the owner.");
@@ -185,12 +184,11 @@ const PropertyDetails = () => {
     setIsCalling(true);
   };
 
-  // 💡 [NEW] കോൾ തീരുമ്പോൾ കോൾ ഡ്യൂറേഷൻ ഡാറ്റാബേസിൽ സേവ് ചെയ്യുന്നു
+  // കോൾ തീരുമ്പോൾ കോൾ ഡ്യൂറേഷൻ ഡാറ്റാബേസിൽ സേവ് ചെയ്യുന്നു
   const handleEndCall = async (duration) => {
     setIsCalling(false);
     setIncomingCallData(null);
 
-    // സമയം 0 ആണെങ്കിൽ അത് മിസ്ഡ് കോൾ ആയി കണക്കാക്കാം
     try {
       const res = await apiRequest('/messages', {
         method: 'POST',
@@ -257,7 +255,7 @@ const PropertyDetails = () => {
         />
       )}
 
-      {/* 💡 INCOMING CALL MODAL */}
+      {/* 💡 INCOMING CALL MODAL (z-[110] - ഏറ്റവും മുകളിൽ) */}
       {incomingCallData && !isCalling && (
         <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white p-8 rounded-2xl text-center shadow-2xl animate-bounce">
@@ -387,7 +385,6 @@ const PropertyDetails = () => {
                 <MessageSquare size={16} /> Chat With Owner
               </button>
 
-              {/* 💡 തിരുത്തിയ കോൾ ബട്ടണുകൾ */}
               <div className="flex gap-2">
                 <button onClick={() => handleStartCall('audio')} className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
                   <Phone size={16} /> Audio Call
@@ -396,7 +393,6 @@ const PropertyDetails = () => {
                   <Video size={16} /> Video Call
                 </button>
               </div>
-
             </div>
           </div>
         </div>
@@ -406,8 +402,23 @@ const PropertyDetails = () => {
       <AnimatePresence>
         {isChatOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsChatOpen(false)} className="fixed inset-0 bg-black/40 z-50 backdrop-blur-xs" />
-            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white z-50 shadow-2xl flex flex-col border-l border-slate-100">
+            {/* 💡 ബാക്ക്ഡ്രോപ്പ് Z-Index z-[90] ആക്കി ഉയർത്തി */}
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setIsChatOpen(false)} 
+              className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-xs" 
+            />
+            
+            {/* 💡 ചാറ്റ് ബോക്സ് Z-Index z-[100] ആക്കി ഉയർത്തി. ഇത് ബോട്ടം നാവ്ബാറിന് മുകളിൽ വരും */}
+            <motion.div 
+              initial={{ x: '100%' }} 
+              animate={{ x: 0 }} 
+              exit={{ x: '100%' }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
+              className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white z-[100] shadow-2xl flex flex-col border-l border-slate-100"
+            >
               
               <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-950 text-white">
                 <div className="flex items-center gap-3">
@@ -448,7 +459,6 @@ const PropertyDetails = () => {
                   return (
                     <div key={msg._id || msg.id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs font-semibold shadow-2xs ${isMyMessage ? 'bg-slate-950 text-white rounded-tr-none' : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'}`}>
-                        {/* 💡 Call Logs ചാറ്റിൽ കാണിക്കാൻ */}
                         {msg.messageType === 'call' ? (
                           <div className="flex items-center gap-2">
                             {msg.callDetails?.callType === 'video' ? <Video size={14} /> : <Phone size={14} />}
@@ -464,6 +474,7 @@ const PropertyDetails = () => {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* 💡 ഇൻപുട്ട് ഫീൽഡ് ഇപ്പോൾ ഏറ്റവും താഴെ മറയാതെ കൃത്യമായി കാണാം */}
               <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-100 bg-white flex items-center gap-2">
                 <input
                   type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your message..."
