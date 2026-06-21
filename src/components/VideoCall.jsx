@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Peer from 'simple-peer/simplepeer.min.js';
-import { PhoneOff, Mic, MicOff, Video as VideoIcon, VideoOff } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, Video as VideoIcon, VideoOff, Volume2, VolumeX } from 'lucide-react';
 
 const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndCall, callType = 'video' }) => {
   const [stream, setStream] = useState(null);
@@ -9,6 +9,7 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === 'audio'); 
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true); // 🔊 Speaker State
 
   // 💡 കോൾ ടൈമിംഗ് ട്രാക്ക് ചെയ്യാൻ
   const startTimeRef = useRef(null);
@@ -80,7 +81,7 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
       })
       .catch(err => {
         console.error("Permission denied:", err);
-        onEndCall(); 
+        onEndCall(0); 
       });
 
     return () => {
@@ -106,16 +107,25 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
     }
   };
 
+  // 🔊 Speaker ON/OFF ചെയ്യാനുള്ള ഫംഗ്ഷൻ
+  const toggleSpeaker = () => {
+    if (userVideo.current) {
+      userVideo.current.muted = isSpeakerOn; // ടോഗിൾ ചെയ്യുന്നു
+      setIsSpeakerOn(!isSpeakerOn);
+    }
+  };
+
   const leaveCall = () => {
     const endTime = new Date();
     const duration = startTimeRef.current ? Math.round((endTime - startTimeRef.current) / 1000) : 0;
     
-    // 💡 ഇവിടെ വേണമെങ്കിൽ API കോൾ ചെയ്ത് കോൾ ലോഗ് ഡാറ്റാബേസിലേക്ക് അയക്കാം
     console.log(`Call Duration: ${duration} seconds`);
 
     if (connectionRef.current) connectionRef.current.destroy();
     if (stream) stream.getTracks().forEach(track => track.stop());
-    onEndCall();
+    
+    // 💡 കോൾ ടൈം ചാറ്റിൽ മെസ്സേജ് ആയി സേവ് ചെയ്യാൻ ഡ്യൂറേഷൻ കൂടി പാസ്സ് ചെയ്യുന്നു
+    onEndCall(duration);
   };
 
   return (
@@ -124,13 +134,16 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
         
         {callAccepted ? (
           callType === 'video' ? (
-            <video playsInline ref={userVideo} autoPlay className="w-full h-full object-cover" />
+            <video playsInline ref={userVideo} autoPlay muted={!isSpeakerOn} className="w-full h-full object-cover" />
           ) : (
             <div className="flex flex-col items-center text-white">
               <div className="w-32 h-32 bg-slate-700 rounded-full flex items-center justify-center text-4xl mb-4 font-bold uppercase">
                 {activeChatId.slice(-2)}
               </div>
               <div className="text-xl animate-pulse">On Audio Call...</div>
+              
+              {/* 🔊 ഓഡിയോ കോൾ കേൾക്കാൻ വേണ്ടിയുള്ള ഹിഡൻ ടാഗ് ഇവിടെ ആഡ് ചെയ്തു */}
+              <audio ref={userVideo} autoPlay playsInline muted={!isSpeakerOn} />
             </div>
           )
         ) : (
@@ -155,17 +168,26 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
           </div>
         )}
 
+        {/* 🛠️ Control Bar */}
         <div className="absolute bottom-10 flex gap-6 px-6 py-4 bg-slate-800/80 backdrop-blur-md rounded-full shadow-2xl z-20">
+          {/* Mute/Unmute Mic */}
           <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
             {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
           </button>
 
+          {/* 🔊 New Speaker Button (Audio/Video രണ്ട് കോളിലും കാണിക്കും) */}
+          <button onClick={toggleSpeaker} className={`p-4 rounded-full ${!isSpeakerOn ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
+            {!isSpeakerOn ? <VolumeX size={24} /> : <Volume2 size={24} />}
+          </button>
+
+          {/* Video Toggle */}
           {callType === 'video' && (
             <button onClick={toggleVideo} className={`p-4 rounded-full ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
               {isVideoOff ? <VideoOff size={24} /> : <VideoIcon size={24} />}
             </button>
           )}
 
+          {/* End Call Button */}
           <button onClick={leaveCall} className="p-4 bg-red-600 hover:bg-red-700 text-white rounded-full">
             <PhoneOff size={24} />
           </button>
