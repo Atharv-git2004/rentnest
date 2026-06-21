@@ -31,14 +31,16 @@ const ChatWindow = ({
   const recordingIntervalRef = useRef(null);
   const isCancelledRef = useRef(false);
 
-  // ⚠️ നിങ്ങളുടെ ബാക്ക്എൻഡ് റൺ ചെയ്യുന്ന ശരിയായ അഡ്രസ്സ് ഇവിടെ കൊടുക്കുക 
-  const BACKEND_URL = 'http://localhost:5000'; 
+  // 🚀 തിരുത്തിയ ഭാഗം: Render-ലെ നിങ്ങളുടെ യഥാർത്ഥ ബാക്കെൻഡ് URL കൊടുത്തു 
+  const BACKEND_URL = 'https://rentnest-backend-civ9.onrender.com'; 
 
   // ബാക്ക്എൻഡിൽ നിന്നുള്ള ഫയൽ ലിങ്കുകൾ ശരിയാക്കാനുള്ള ഫംഗ്ഷൻ
   const getMediaUrl = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
-    return `${BACKEND_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+    // URL-ൽ /api എന്നുണ്ടെങ്കിൽ അത് ഒഴിവാക്കി നേരിട്ട് ഫയൽ എടുക്കാൻ
+    const cleanUrl = url.replace('/api', '');
+    return `${BACKEND_URL}${cleanUrl.startsWith('/') ? '' : '/'}${cleanUrl}`;
   };
 
   const getUserId = (userObj) => {
@@ -115,7 +117,7 @@ const ChatWindow = ({
       }
     } catch (err) { 
       console.error("File Upload error:", err.message); 
-      alert("Failed to upload file. Please make sure the backend server is running.");
+      alert("Failed to upload file. Please check console for details.");
     } finally {
       e.target.value = null; 
     }
@@ -141,9 +143,13 @@ const ChatWindow = ({
 
         if (isCancelledRef.current) return;
 
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // 🚀 തിരുത്തിയ ഭാഗം: ബ്രൗസറിന് സപ്പോർട്ട് ചെയ്യുന്ന ഓഡിയോ ഫോർമാറ്റ് സ്വയം തിരഞ്ഞെടുക്കാൻ
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const extension = mimeType.includes('mp4') ? 'm4a' : 'webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        
         const formData = new FormData();
-        formData.append('file', audioBlob, 'voice-message.webm');
+        formData.append('file', audioBlob, `voice-message.${extension}`);
 
         try {
           const response = await apiRequest('/messages/upload', { method: 'POST', body: formData });
@@ -177,7 +183,6 @@ const ChatWindow = ({
         }
       };
 
-      // ഡാറ്റ കൃത്യമായി റെക്കോർഡ് ആകാൻ 250ms സമയം സെറ്റ് ചെയ്തു
       mediaRecorder.start(250); 
       setIsRecording(true);
       setRecordingTime(0);
@@ -320,7 +325,6 @@ const ChatWindow = ({
                   </div>
                 ) : msg.messageType === 'audio' ? (
                   <div className="pt-1 pb-4 pr-4">
-                     {/* getMediaUrl ഉപയോഗിച്ച് ശരിയായ ലിങ്ക് കൊടുക്കുന്നു */}
                      <audio controls className="max-w-[200px] sm:max-w-[250px] h-[40px] outline-none" src={getMediaUrl(msg.fileUrl)}>
                         Your browser does not support the audio element.
                      </audio>
