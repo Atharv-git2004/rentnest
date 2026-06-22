@@ -5,11 +5,11 @@ import { Building2, LogOut } from 'lucide-react';
 
 // Context & Components
 import { useAuth } from './context/AuthContext';
-import { SocketProvider, useSocket } from './context/SocketContext'; 
+import { useSocket } from './context/SocketContext'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import CallModal from './components/CallModal';
 import BottomNavbar from './components/BottomNavbar';
-import VideoCall from './components/VideoCall'; // 💡 വീഡിയോ കോൾ വിൻഡോ ഇവിടെ ഇംപോർട്ട് ചെയ്യുക
+import VideoCall from './components/VideoCall'; 
 
 // Pages
 import Home from './pages/Home';
@@ -79,35 +79,41 @@ const Navbar = () => {
 // --- APP CONTENT COMPONENT ---
 const AppContent = () => {
   const [isCalling, setIsCalling] = useState(false);
-  const [isCallActive, setIsCallActive] = useState(false); // 💡 കോൾ ആക്റ്റീവ് ആണോ എന്ന് അറിയാൻ
-  const [callData, setCallData] = useState(null); // 💡 ഇൻകമിംഗ് കോൾ സിഗ്നൽ ഡാറ്റ സൂക്ഷിക്കാൻ
+  const [isCallActive, setIsCallActive] = useState(false); 
+  const [callData, setCallData] = useState(null); 
   const [callerName, setCallerName] = useState("Unknown Caller"); 
   
   const socket = useSocket();
-  const { user } = useAuth(); // 💡 കറന്റ് യൂസർ ഐഡി എടുക്കാൻ
+  const { user } = useAuth(); 
 
   useEffect(() => {
-    if (socket) {
-      const handleIncomingCall = (data) => {
-        console.log("Incoming Call Received:", data);
-        setCallerName(data?.callerName || "Unknown User"); 
+    if (!socket) return;
+
+    const handleIncomingCall = (data) => {
+      // നിലവിൽ ഒരു കോൾ വന്നിട്ടുണ്ടെങ്കിൽ വീണ്ടും അതേ സിഗ്നൽ പ്രോസസ്സ് ചെയ്യില്ല (ലൂപ്പ് ഒഴിവാക്കാൻ)
+      setCallData((prev) => {
+        if (prev && prev.signal === data.signalData) return prev; 
         
-        // സോക്കറ്റിൽ നിന്നും വരുന്ന മുഴുവൻ ഡാറ്റയും സ്റ്റേറ്റിലേക്ക് മാറ്റുന്നു
-        setCallData({
+        console.log("✅ New Incoming Call Received:", data);
+        setCallerName(data?.callerName || "Unknown User"); 
+        setIsCalling(true);
+        
+        return {
           from: data.from,
           signal: data.signalData,
           callType: data.callType || 'video',
           chatId: data.from
-        });
-        setIsCalling(true);
-      };
+        };
+      });
+    };
 
-      socket.on('incoming-call', handleIncomingCall);
+    // പഴയ ലിസണർ ഒഴിവാക്കിയിട്ട് പുതിയത് ആഡ് ചെയ്യുന്നു (Multiple triggers ഒഴിവാക്കാൻ)
+    socket.off('incoming-call', handleIncomingCall);
+    socket.on('incoming-call', handleIncomingCall);
 
-      return () => {
-        socket.off('incoming-call', handleIncomingCall);
-      };
-    }
+    return () => {
+      socket.off('incoming-call', handleIncomingCall);
+    };
   }, [socket]);
 
   // കോൾ അക്സെപ്റ്റ് ചെയ്യുമ്പോൾ ഉള്ള ഫംഗ്ഷൻ
@@ -116,18 +122,20 @@ const AppContent = () => {
     setIsCallActive(true);
   };
 
-  // കോൾ റിജക്റ്റ് ചെയ്യുമ്പോഴും കട്ട് ചെയ്യുമ്പോഴും ഉള്ള ഫംഗ്ഷൻ
+  // 🛠️ കോൾ റിജക്റ്റ് ചെയ്യുമ്പോഴും കട്ട് ചെയ്യുമ്പോഴും ഉള്ള ഫംഗ്ഷൻ (പ്രശ്നം പരിഹരിച്ചത് ഇവിടെയാണ്)
   const handleEndCall = () => {
-    setIsCalling(false);
-    setIsCallActive(false);
-    setCallData(null);
+    console.log("📞 Resetting all call states...");
+    setIsCalling(false);       // കോൾ വരുന്ന മോഡൽ മറയ്ക്കുന്നു
+    setIsCallActive(false);    // കോൾ സ്ക്രീൻ മറയ്ക്കുന്നു
+    setCallData(null);         // പഴയ കോൾ ഡാറ്റ പൂർണ്ണമായി മായ്ക്കുന്നു (അടുത്ത കോൾ എടുക്കാൻ ഇത് നിർബന്ധമാണ്)
+    setCallerName("Unknown Caller"); // പേര് റീസെറ്റ് ചെയ്യുന്നു
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 pb-16 md:pb-0">
       <Navbar />
       
-      {/* 💡 ഇൻകമിംഗ് കോൾ വരുമ്പോൾ കാണിക്കുന്ന മോഡൽ */}
+      {/* ഇൻകമിംഗ് കോൾ വരുമ്പോൾ കാണിക്കുന്ന മോഡൽ */}
       <CallModal 
         isOpen={isCalling} 
         callerName={callerName} 
@@ -135,7 +143,7 @@ const AppContent = () => {
         onReject={handleEndCall} 
       />
 
-      {/* 💡 കോൾ അക്സെപ്റ്റ് ചെയ്താൽ സ്ക്രീനിന് മുകളിലായി VideoCall കമ്പോണന്റ് ലോഡ് ചെയ്യും */}
+      {/* കോൾ അക്സെപ്റ്റ് ചെയ്താൽ സ്ക്രീനിന് മുകളിലായി VideoCall കമ്പോണന്റ് ലോഡ് ചെയ്യും */}
       {isCallActive && callData && (
         <VideoCall 
           socket={socket}
@@ -173,9 +181,7 @@ const AppContent = () => {
 const App = () => {
   return (
     <BrowserRouter>
-      <SocketProvider>
-        <AppContent />
-      </SocketProvider>
+      <AppContent />
     </BrowserRouter>
   );
 };

@@ -17,7 +17,22 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
   const connectionRef = useRef();
   const streamRef = useRef(null);
 
-  // 💡 Fix 1: Local Video Playback
+  // Stale Closures പൂർണ്ണമായി ഒഴിവാക്കാൻ പ്രോപ്പുകളെ റെഫറൻസുകളിലേക്ക് മാറ്റുന്നു
+  const socketRef = useRef(socket);
+  const activeChatIdRef = useRef(activeChatId);
+  const currentUserIdRef = useRef(currentUserId);
+  const onEndCallRef = useRef(onEndCall);
+  const incomingSignalRef = useRef(incomingSignal);
+
+  useEffect(() => {
+    socketRef.current = socket;
+    activeChatIdRef.current = activeChatId;
+    currentUserIdRef.current = currentUserId;
+    onEndCallRef.current = onEndCall;
+    incomingSignalRef.current = incomingSignal;
+  }, [socket, activeChatId, currentUserId, onEndCall, incomingSignal]);
+
+  // Local Video Playback
   useEffect(() => {
     if (stream && myVideo.current) {
       myVideo.current.srcObject = stream;
@@ -25,7 +40,7 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
     }
   }, [stream, isVideoOff]);
 
-  // 💡 Fix 2: Remote Video Playback (Autoplay Policy Fix)
+  // Remote Video/Audio Playback
   useEffect(() => {
     if (remoteStream && userVideo.current) {
       userVideo.current.srcObject = remoteStream;
@@ -43,12 +58,25 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
       audio: true
     };
 
-    const handleCallAccepted = (signal) => {
+    const handleCallAccepted = (data) => {
+      console.log("✅ Call accepted signal received!");
       setCallAccepted(true);
       if (connectionRef.current && !connectionRef.current.destroyed) {
-        connectionRef.current.signal(signal);
+        // 💡 FIX 1: ബാക്ക്എൻഡിൽ നിന്ന് വരുന്നത് സിഗ്നൽ ഒബ്ജക്റ്റ് ആണെങ്കിൽ അത് വേർതിരിച്ചെടുക്കുന്നു
+        const signalData = data.signal ? data.signal : data;
+        connectionRef.current.signal(signalData);
       }
     };
+
+    const handleCallEnded = () => {
+      console.log("🚫 Remote user ended the call");
+      onEndCallRef.current(0); 
+    };
+
+    if (!incomingSignalRef.current) {
+      socketRef.current.on('call-accepted', handleCallAccepted);
+    }
+    socketRef.current.on('call-ended', handleCallEnded);
 
     navigator.mediaDevices.getUserMedia(mediaConstraints)
       .then((currentStream) => {
@@ -60,9 +88,8 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
         streamRef.current = currentStream;
         setStream(currentStream);
 
-        // 💡 Fix 3: Added STUN Servers for better WebRTC Connection
         const peer = new Peer({ 
-          initiator: !incomingSignal, 
+          initiator: !incomingSignalRef.current, 
           trickle: false, 
           stream: currentStream,
           config: {
@@ -76,15 +103,22 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
         connectionRef.current = peer;
 
         peer.on('signal', (data) => {
-          if (incomingSignal) {
-            socket.emit('accept-call', { signal: data, to: activeChatId });
+          if (incomingSignalRef.current) {
+            // 💡 FIX 2: വിളിച്ച ആളുടെ യഥാർത്ഥ ഐഡിയിലേക്ക് (from) സിഗ്നൽ തിരികെ അയക്കുന്നു
+            const callerId = incomingSignalRef.current.from || activeChatIdRef.current;
+            socketRef.current.emit('accept-call', { signal: data, to: callerId });
           } else {
-            socket.emit('call-user', { userToCall: activeChatId, signalData: data, from: currentUserId, callType });
+            socketRef.current.emit('call-user', { 
+              userToCall: activeChatIdRef.current, 
+              signalData: data, 
+              from: currentUserIdRef.current, 
+              callType 
+            });
           }
         });
 
         peer.on('stream', (userStream) => {
-          console.log("✅ Remote stream received!"); // Debug log
+          console.log("✅ Remote stream received!"); 
           if (active) {
             setRemoteStream(userStream);
           }
@@ -94,21 +128,24 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
           startTimeRef.current = new Date();
         });
 
-        if (incomingSignal) {
+        if (incomingSignalRef.current) {
           setCallAccepted(true);
-          peer.signal(incomingSignal);
-        } else {
-          socket.on('call-accepted', handleCallAccepted);
+          // 💡 FIX 3: incomingSignal-ൽ നിന്ന് കൃത്യമായ 'signal' ഡാറ്റ മാത്രം എടുത്ത് peer-ലേക്ക് പാസ്സ് ചെയ്യുന്നു
+          const actualSignal = incomingSignalRef.current.signal ? incomingSignalRef.current.signal : incomingSignalRef.current;
+          peer.signal(actualSignal);
         }
       })
       .catch(err => {
         console.error("Permission denied:", err);
-        if (active) onEndCall(0); 
+        if (active) onEndCallRef.current(0); 
       });
 
     return () => {
       active = false;
-      socket.off('call-accepted', handleCallAccepted);
+      if (socketRef.current) {
+        socketRef.current.off('call-accepted', handleCallAccepted);
+        socketRef.current.off('call-ended', handleCallEnded);
+      }
       
       if (connectionRef.current) connectionRef.current.destroy();
       
@@ -116,7 +153,7 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [incomingSignal, activeChatId, socket, currentUserId, callType, onEndCall]);
+  }, [callType]);
 
   const toggleMic = () => {
     if (stream && stream.getAudioTracks().length > 0) {
@@ -145,15 +182,14 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
     const endTime = new Date();
     const duration = startTimeRef.current ? Math.round((endTime - startTimeRef.current) / 1000) : 0;
     
-    console.log(`Call Duration: ${duration} seconds`);
+    socketRef.current.emit('end-call', { to: activeChatIdRef.current });
 
     if (connectionRef.current) connectionRef.current.destroy();
-    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
     }
     
-    onEndCall(duration);
+    onEndCallRef.current(duration);
   };
 
   return (
@@ -166,7 +202,7 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
           ) : (
             <div className="flex flex-col items-center text-white">
               <div className="w-32 h-32 bg-slate-700 rounded-full flex items-center justify-center text-4xl mb-4 font-bold uppercase">
-                {activeChatId.slice(-2)}
+                {activeChatId ? activeChatId.slice(-2) : 'AU'}
               </div>
               <div className="text-xl animate-pulse">On Audio Call...</div>
               
@@ -196,7 +232,6 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
 
         {/* Control Bar */}
         <div className="absolute bottom-10 flex gap-6 px-6 py-4 bg-slate-800/80 backdrop-blur-md rounded-full shadow-2xl z-20">
-          
           <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
             {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
           </button>

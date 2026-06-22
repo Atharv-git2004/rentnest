@@ -2,20 +2,23 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css'; 
-import { GoogleOAuthProvider } from '@react-oauth/google'; // 💡 ഗൂഗിൾ പ്രൊവൈഡർ ഇംപോർട്ട് ചെയ്തു
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
-// AuthProvider ഇവിടെ നൽകുന്നു, SocketProvider നമ്മൾ App.jsx-ൽ കൊടുത്തിട്ടുണ്ട്.
+// AuthProvider ഉം SocketProvider ഉം ഇവിടെ ഇംപോർട്ട് ചെയ്യുന്നു
 import { AuthProvider } from './context/AuthContext.jsx';
+// 💡 നിങ്ങളുടെ SocketContext ഫയൽ ഉള്ള കൃത്യമായ പാത്ത് ഇവിടെ കൊടുക്കുക
+import { SocketProvider } from './context/SocketContext.jsx'; 
 
-// നമ്മൾ ഗൂഗിൾ ക്ലൗഡ് കൺസോളിൽ നിന്ന് എടുത്ത നിങ്ങളുടെ Client ID
 const GOOGLE_CLIENT_ID = "532480409678-d6givfpqbi16tceg8lupdjnk96ukvpq8.apps.googleusercontent.com";
-
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}> {/* 💡 ഗൂഗിൾ പ്രൊവൈഡർ ഇവിടെ റാപ്പ് ചെയ്തു */}
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
-        <App />
+        {/* 💡 SocketProvider ഇവിടെ App-നെ റാപ്പ് ചെയ്ത് നൽകുന്നു */}
+        <SocketProvider>
+          <App />
+        </SocketProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>

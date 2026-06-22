@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Phone, Video, MessageSquare, PhoneOff, 
-  PhoneIncoming, Home as HomeIcon, User, Sun, Moon
+  Home as HomeIcon, User, Sun, Moon
 } from 'lucide-react';
 
 import { useSocket } from '../context/SocketContext';
@@ -37,8 +37,9 @@ const Chats = () => {
     activeChatIdRef.current = activeChatId; 
   }, [activeChatId]);
 
+  // 💡 isReceiving സ്റ്റേറ്റ് ഒഴിവാക്കി (ഇൻകമിംഗ് കോൾ ഇനി App.jsx ആണ് കൈകാര്യം ചെയ്യുന്നത്)
   const [callData, setCallData] = useState({
-    isActive: false, isReceiving: false, signal: null, partnerId: null, callType: 'video', startTime: null 
+    isActive: false, signal: null, partnerId: null, callType: 'video', startTime: null 
   });
 
   const theme = isDarkMode ? {
@@ -127,23 +128,17 @@ const Chats = () => {
       });
     };
 
-    const handleIncomingCall = (data) => {
-      setCallData({ isActive: false, isReceiving: true, signal: data.signal, partnerId: data.from, callType: data.callType || 'video', startTime: null });
-    };
-
     const handleCallEnded = () => {
-      setCallData({ isActive: false, isReceiving: false, signal: null, partnerId: null, callType: 'video', startTime: null });
+      setCallData({ isActive: false, signal: null, partnerId: null, callType: 'video', startTime: null });
     };
 
     socket.on('receive-message', handleReceiveMessage);
     socket.on('messages-read', handleMessagesRead);
-    socket.on('incoming-call', handleIncomingCall);
-    socket.on('call-ended', handleCallEnded);
+    socket.on('call-ended', handleCallEnded); // 💡 ഇൻകമിംഗ് ലിസണർ ഒഴിവാക്കി
 
     return () => {
       socket.off('receive-message', handleReceiveMessage);
       socket.off('messages-read', handleMessagesRead);
-      socket.off('incoming-call', handleIncomingCall);
       socket.off('call-ended', handleCallEnded);
     };
   }, [socket, currentUserId, getUserId]); 
@@ -158,7 +153,6 @@ const Chats = () => {
     }
   };
 
-  // 🛠️ കോൾ ലോഗുകൾ ശരിയായി കൈകാര്യം ചെയ്യാൻ തക്കവണ്ണം മെസ്സേജ് ഫംഗ്ഷൻ പുതുക്കി
   const handleSendMessage = async (messageText, type = 'text', targetReceiverId = null, callDetails = null) => {
     const receiverId = targetReceiverId || activeChatId;
     if (!messageText.trim() || !receiverId || !currentUserId) return;
@@ -221,12 +215,10 @@ const Chats = () => {
 
   const handleStartCall = (type = 'video') => {
     if (!socket || !activeChatId) return;
-    setCallData({ isActive: true, isReceiving: false, signal: null, partnerId: activeChatId, callType: type, startTime: new Date() });
+    setCallData({ isActive: true, signal: null, partnerId: activeChatId, callType: type, startTime: new Date() });
   };
 
-  const handleAcceptCall = () => setCallData(prev => ({ ...prev, isActive: true, isReceiving: false, startTime: new Date() }));
-
-  // 🎙️ കോൾ കട്ടാകുമ്പോൾ പ്രൊഫഷണൽ കോൾ ബോക്സ് നിർമ്മിക്കുന്ന ഫംഗ്ഷൻ
+  // 💡 Outgoing കോൾ കട്ടാകുമ്പോൾ മാത്രം കോൾ ലോഗ് സേവ് ചെയ്യുന്നു
   const handleEndOrRejectCall = (duration = 0) => {
     const partner = callData.partnerId;
     const cType = callData.callType;
@@ -234,48 +226,32 @@ const Chats = () => {
 
     if (socket && partner) socket.emit('end-call', { to: partner });
 
-    if (partner) {
-      if (wasActive || !callData.isReceiving) { 
-        let callText = '';
-        if (duration > 0) {
-          const mins = Math.floor(duration / 60);
-          const secs = duration % 60;
-          callText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        } else {
-          callText = 'Missed Call';
-        }
-
-        // ChatWindow-ൽ പ്രൊഫഷണൽ ഡിസൈൻ ലഭിക്കാൻ വേണ്ടി type 'call' ആക്കി മാറ്റിയെഴുതി
-        handleSendMessage(callText, 'call', partner, {
-          callType: cType,
-          duration: Number(duration)
-        });
+    if (partner && wasActive) { 
+      let callText = '';
+      if (duration > 0) {
+        const mins = Math.floor(duration / 60);
+        const secs = duration % 60;
+        callText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+      } else {
+        callText = 'Missed Call';
       }
+
+      handleSendMessage(callText, 'call', partner, {
+        callType: cType,
+        duration: Number(duration)
+      });
     }
 
-    setCallData({ isActive: false, isReceiving: false, signal: null, partnerId: null, callType: 'video', startTime: null });
+    setCallData({ isActive: false, signal: null, partnerId: null, callType: 'video', startTime: null });
   };
 
   const filteredContacts = contacts.filter(c => (c.name || 'User').toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    // അനാവശ്യമായ സൈഡ് പാഡിംഗുകൾ ഒഴിവാക്കി ഫുൾ സ്ക്രീൻ ആക്കി മാറ്റി
     <div className={`flex w-full h-[100dvh] justify-center ${theme.appBg} transition-colors duration-300`}>
       <div className={`flex w-full max-w-[1600px] h-full ${theme.panelBg} overflow-hidden relative`}>
-        
-        {callData.isReceiving && !callData.isActive && (
-          <div className="absolute inset-0 bg-[#0b141a]/95 z-50 flex flex-col items-center justify-center text-[#e9edef] animate-fade-in">
-            <div className="w-24 h-24 bg-[#00a884] rounded-full flex items-center justify-center mb-6 animate-bounce">
-              {callData.callType === 'audio' ? <PhoneIncoming size={40} /> : <Video size={40} />}
-            </div>
-            <h2 className="text-3xl font-bold">Incoming {callData.callType} Call...</h2>
-            <div className="flex gap-8 mt-12">
-              <button onClick={handleAcceptCall} className="p-5 bg-[#00a884] hover:bg-[#029173] rounded-full text-white shadow-lg"><Phone size={28} /></button>
-              <button onClick={handleEndOrRejectCall} className="p-5 bg-red-500 hover:bg-red-600 rounded-full text-white shadow-lg"><PhoneOff size={28} /></button>
-            </div>
-          </div>
-        )}
 
+        {/* 💡 നിങ്ങൾ കോൾ വിളിക്കുമ്പോൾ (Outgoing) മാത്രം ഈ VideoCall കമ്പോണന്റ് ഇവിടെ ഓപ്പൺ ആകും */}
         {callData.isActive && (
           <VideoCall socket={socket} currentUserId={currentUserId} activeChatId={callData.partnerId} incomingSignal={callData.signal} onEndCall={handleEndOrRejectCall} callType={callData.callType} />
         )}

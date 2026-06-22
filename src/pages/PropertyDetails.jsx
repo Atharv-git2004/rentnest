@@ -49,6 +49,13 @@ const PropertyDetails = () => {
   const [callType, setCallType] = useState('audio');
   const [incomingCallData, setIncomingCallData] = useState(null);
 
+  // 💡 FIX: isCalling സ്റ്റേറ്റ് ട്രാക്ക് ചെയ്യാൻ useRef ഉപയോഗിക്കുന്നു
+  const isCallingRef = useRef(isCalling);
+
+  useEffect(() => {
+    isCallingRef.current = isCalling;
+  }, [isCalling]);
+
   const ownerId = property?.owner?._id || property?.ownerId || property?.owner;
 
   // പ്രോപ്പർട്ടി വിവരങ്ങൾ ലോഡ് ചെയ്യാൻ
@@ -105,7 +112,7 @@ const PropertyDetails = () => {
     fetchChatHistory();
   }, [isChatOpen, ownerId, currentUserId]);
 
-  // Socket വഴിയുള്ള ഇൻകമിംഗ് മെസ്സേജുകളും കോളുകളും കേൾക്കാൻ
+  // 💡 FIX: Socket വഴിയുള്ള ഇൻകമിംഗ് മെസ്സേജുകളും കോളുകളും കേൾക്കാൻ (Optimized)
   useEffect(() => {
     if (!socket || !ownerId) return;
 
@@ -117,7 +124,8 @@ const PropertyDetails = () => {
     };
 
     const incomingCallHandler = (data) => {
-      if (!isCalling) {
+      // 💡 FIX: isCallingRef.current ഉപയോഗിച്ച് ചെക്ക് ചെയ്യുന്നു
+      if (!isCallingRef.current) {
         setIncomingCallData(data);
       }
     };
@@ -129,7 +137,7 @@ const PropertyDetails = () => {
       socket.off('receive-message', receiveMessageHandler);
       socket.off('incoming-call', incomingCallHandler);
     };
-  }, [socket, ownerId, isCalling]);
+  }, [socket, ownerId]); // 💡 FIX: ഡിപെൻഡൻസിയിൽ നിന്ന് isCalling ഒഴിവാക്കി
 
   // ചാറ്റ് എപ്പോഴും താഴേക്ക് സ്ക്രോൾ ചെയ്യാൻ
   useEffect(() => {
