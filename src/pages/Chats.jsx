@@ -37,7 +37,6 @@ const Chats = () => {
     activeChatIdRef.current = activeChatId; 
   }, [activeChatId]);
 
-  // 💡 isCaller സ്റ്റേറ്റ് കൃത്യമായി നിലനിർത്തിയിരിക്കുന്നു
   const [callData, setCallData] = useState({
     isActive: false, 
     signal: null, 
@@ -47,7 +46,6 @@ const Chats = () => {
     isCaller: false 
   });
 
-  // Theme configuration mapping
   const theme = useMemo(() => {
     return isDarkMode ? {
       appBg: 'bg-[#0a1014]', panelBg: 'bg-[#111b21]', headerBg: 'bg-[#202c33]', chatBg: 'bg-[#0b141a]',
@@ -64,7 +62,6 @@ const Chats = () => {
     };
   }, [isDarkMode]);
 
-  // Fetch all recent conversations/contacts
   useEffect(() => {
     const fetchConversations = async () => {
       if (!currentUserId) return;
@@ -79,7 +76,6 @@ const Chats = () => {
     fetchConversations();
   }, [currentUserId]);
 
-  // Fetch messages when an active chat is selected
   useEffect(() => {
     if (!activeChatId || !currentUserId) return;
     const fetchMessages = async () => {
@@ -97,7 +93,6 @@ const Chats = () => {
     fetchMessages();
   }, [activeChatId, currentUserId, socket]);
 
-  // Handle sending text or call log messages
   const handleSendMessage = useCallback(async (messageText, type = 'text', targetReceiverId = null, callDetails = null) => {
     const receiverId = targetReceiverId || activeChatId;
     if (!messageText.trim() || !receiverId || !currentUserId) return;
@@ -157,7 +152,6 @@ const Chats = () => {
     }
   }, [activeChatId, currentUserId, activeChat, socket, getUserId]);
 
-  // Real-time socket event listeners orchestration
   useEffect(() => {
     if (!socket || !currentUserId) return;
 
@@ -284,12 +278,10 @@ const Chats = () => {
     });
   }, [socket, activeChatId]);
 
-  // 🚀 PRO FIX: VideoCall.jsx-ൽ നിന്നും വരുന്ന 'isCallerSequence' ഫ്ലാഗ് ഉപയോഗിച്ച് ഒരു തവണ മാത്രം DB സേവ് ചെയ്യുന്നു!
   const handleEndOrRejectCall = useCallback((duration = 0, isCallerSequence = false) => {
     const partner = callData.partnerId;
     if (socket && partner) socket.emit('end-call', { to: partner });
     
-    // 💡 കണ്ടീഷൻ ശ്രദ്ധിക്കുക: "isCallerSequence" ആണെങ്കിൽ മാത്രം DB റിക്വസ്റ്റ് പോകും
     if (partner && callData.isActive && isCallerSequence) { 
       let callText = duration > 0 ? (Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : `${duration % 60}s`) : 'Missed Call';
       handleSendMessage(callText, 'call', partner, { callType: callData.callType, duration: Number(duration) });
@@ -302,10 +294,12 @@ const Chats = () => {
   }, [contacts, searchQuery]);
 
   return (
-    <div className={`flex w-full h-[100dvh] justify-center ${theme.appBg} transition-colors duration-300`}>
+    // PRO FIX: Changed h-[100dvh] to calc height to avoid double scrollbars causing layout breaks.
+    // overflow-hidden prevents the main window from scrolling, fixing headers/footers.
+    <div className={`flex w-full h-[calc(100vh-75px)] overflow-hidden justify-center ${theme.appBg} transition-colors duration-300`}>
       <div className={`flex w-full max-w-[1600px] h-full ${theme.panelBg} overflow-hidden relative`}>
         
-        {/* WebRTC Video/Audio Overlay view */}
+        {/* WebRTC Video/Audio Overlay */}
         {callData.isActive && (
           <VideoCall 
             socket={socket} 
@@ -320,14 +314,17 @@ const Chats = () => {
         
         {/* Left Hand Contacts Panel */}
         <div className={`flex flex-col w-full md:w-[350px] lg:w-[400px] h-full border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
-          <div className={`${theme.headerBg} p-3.5 flex justify-between items-center ${theme.iconColor}`}>
+          
+          {/* 🔴 FIXED HEADER AREA */}
+          <div className={`${theme.headerBg} p-3.5 flex justify-between items-center shrink-0 ${theme.iconColor}`}>
              <h2 className={`text-[20px] font-semibold ${theme.textPrimary}`}>Chats</h2>
              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-1.5 hover:text-white rounded-full transition-colors">
                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
              </button>
           </div>
           
-          <div className={`p-2 border-b ${theme.border}`}>
+          {/* 🔴 FIXED SEARCH AREA */}
+          <div className={`p-2 border-b shrink-0 ${theme.border}`}>
             <div className={`${theme.headerBg} flex items-center rounded-lg px-3 py-1.5 gap-3`}>
               <Search className={theme.textSecondary} size={18} />
               <input 
@@ -340,6 +337,7 @@ const Chats = () => {
             </div>
           </div>
           
+          {/* 🟢 SCROLLABLE CONTACT LIST AREA */}
           <div className="flex-1 overflow-y-auto">
             {filteredContacts.map((contact) => {
               const cid = getUserId(contact);
