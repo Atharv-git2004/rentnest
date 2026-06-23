@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Building2, LogOut } from 'lucide-react';
 
 // Context & Components
-import { useAuth } from './context/AuthContext';
-import { useSocket } from './context/SocketContext'; 
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext'; 
 import ProtectedRoute from './components/ProtectedRoute';
-import CallModal from './components/CallModal';
 import BottomNavbar from './components/BottomNavbar';
-import VideoCall from './components/VideoCall'; 
 
 // Pages
 import Home from './pages/Home';
@@ -78,83 +76,10 @@ const Navbar = () => {
 
 // --- APP CONTENT COMPONENT ---
 const AppContent = () => {
-  const [isCalling, setIsCalling] = useState(false);
-  const [isCallActive, setIsCallActive] = useState(false); 
-  const [callData, setCallData] = useState(null); 
-  const [callerName, setCallerName] = useState("Unknown Caller"); 
-  
-  const socket = useSocket();
-  const { user } = useAuth(); 
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleIncomingCall = (data) => {
-      // നിലവിൽ ഒരു കോൾ വന്നിട്ടുണ്ടെങ്കിൽ വീണ്ടും അതേ സിഗ്നൽ പ്രോസസ്സ് ചെയ്യില്ല (ലൂപ്പ് ഒഴിവാക്കാൻ)
-      setCallData((prev) => {
-        if (prev && prev.signal === data.signalData) return prev; 
-        
-        console.log("✅ New Incoming Call Received:", data);
-        setCallerName(data?.callerName || "Unknown User"); 
-        setIsCalling(true);
-        
-        return {
-          from: data.from,
-          signal: data.signalData,
-          callType: data.callType || 'video',
-          chatId: data.from
-        };
-      });
-    };
-
-    // പഴയ ലിസണർ ഒഴിവാക്കിയിട്ട് പുതിയത് ആഡ് ചെയ്യുന്നു (Multiple triggers ഒഴിവാക്കാൻ)
-    socket.off('incoming-call', handleIncomingCall);
-    socket.on('incoming-call', handleIncomingCall);
-
-    return () => {
-      socket.off('incoming-call', handleIncomingCall);
-    };
-  }, [socket]);
-
-  // കോൾ അക്സെപ്റ്റ് ചെയ്യുമ്പോൾ ഉള്ള ഫംഗ്ഷൻ
-  const handleAcceptCall = () => {
-    setIsCalling(false);
-    setIsCallActive(true);
-  };
-
-  // 🛠️ കോൾ റിജക്റ്റ് ചെയ്യുമ്പോഴും കട്ട് ചെയ്യുമ്പോഴും ഉള്ള ഫംഗ്ഷൻ (പ്രശ്നം പരിഹരിച്ചത് ഇവിടെയാണ്)
-  const handleEndCall = () => {
-    console.log("📞 Resetting all call states...");
-    setIsCalling(false);       // കോൾ വരുന്ന മോഡൽ മറയ്ക്കുന്നു
-    setIsCallActive(false);    // കോൾ സ്ക്രീൻ മറയ്ക്കുന്നു
-    setCallData(null);         // പഴയ കോൾ ഡാറ്റ പൂർണ്ണമായി മായ്ക്കുന്നു (അടുത്ത കോൾ എടുക്കാൻ ഇത് നിർബന്ധമാണ്)
-    setCallerName("Unknown Caller"); // പേര് റീസെറ്റ് ചെയ്യുന്നു
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 pb-16 md:pb-0">
       <Navbar />
       
-      {/* ഇൻകമിംഗ് കോൾ വരുമ്പോൾ കാണിക്കുന്ന മോഡൽ */}
-      <CallModal 
-        isOpen={isCalling} 
-        callerName={callerName} 
-        onAccept={handleAcceptCall} 
-        onReject={handleEndCall} 
-      />
-
-      {/* കോൾ അക്സെപ്റ്റ് ചെയ്താൽ സ്ക്രീനിന് മുകളിലായി VideoCall കമ്പോണന്റ് ലോഡ് ചെയ്യും */}
-      {isCallActive && callData && (
-        <VideoCall 
-          socket={socket}
-          currentUserId={user?._id || user?.id}
-          activeChatId={callData.from}
-          incomingSignal={callData.signal}
-          callType={callData.callType}
-          onEndCall={handleEndCall}
-        />
-      )}
-
       <div className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -181,7 +106,11 @@ const AppContent = () => {
 const App = () => {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <SocketProvider>
+          <AppContent />
+        </SocketProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 };

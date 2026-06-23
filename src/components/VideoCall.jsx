@@ -1,82 +1,83 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Peer from 'simple-peer/simplepeer.min.js';
-import { PhoneOff, Mic, MicOff, Video as VideoIcon, VideoOff, Volume2, VolumeX } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video as VideoIcon, VideoOff, Volume2, VolumeX, AlertCircle } from 'lucide-react';
 
-const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndCall, callType = 'video' }) => {
+const VideoCall = ({ 
+  socket, 
+  currentUserId, 
+  activeChatId, 
+  activeChatName = "User", 
+  activeChatAvatar,        
+  incomingSignal, 
+  onEndCall, 
+  callType = 'video',
+  isCaller // 🚀 PRO FIX: Caller ആണോ Receiver ആണോ എന്ന് തിരിച്ചറിയാൻ
+}) => {
   const [stream, setStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [callAccepted, setCallAccepted] = useState(false);
+  const [mediaError, setMediaError] = useState(null); 
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === 'audio'); 
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
 
   const startTimeRef = useRef(null);
-  const myVideo = useRef();
-  const userVideo = useRef();
-  const connectionRef = useRef();
+  const myVideo = useRef(null);
+  const userVideo = useRef(null);
+  const connectionRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Stale Closures പൂർണ്ണമായി ഒഴിവാക്കാൻ പ്രോപ്പുകളെ റെഫറൻസുകളിലേക്ക് മാറ്റുന്നു
-  const socketRef = useRef(socket);
-  const activeChatIdRef = useRef(activeChatId);
-  const currentUserIdRef = useRef(currentUserId);
-  const onEndCallRef = useRef(onEndCall);
-  const incomingSignalRef = useRef(incomingSignal);
-
-  useEffect(() => {
-    socketRef.current = socket;
-    activeChatIdRef.current = activeChatId;
-    currentUserIdRef.current = currentUserId;
-    onEndCallRef.current = onEndCall;
-    incomingSignalRef.current = incomingSignal;
-  }, [socket, activeChatId, currentUserId, onEndCall, incomingSignal]);
-
-  // Local Video Playback
-  useEffect(() => {
-    if (stream && myVideo.current) {
-      myVideo.current.srcObject = stream;
-      myVideo.current.play().catch(err => console.warn("Local video play error:", err));
-    }
-  }, [stream, isVideoOff]);
-
-  // Remote Video/Audio Playback
-  useEffect(() => {
-    if (remoteStream && userVideo.current) {
-      userVideo.current.srcObject = remoteStream;
-      userVideo.current.play().catch(err => {
-        console.warn("Autoplay blocked by browser:", err);
+  const stopAllTracks = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
       });
+      streamRef.current = null;
     }
-  }, [remoteStream, callAccepted]);
+  }, []);
 
+  // 1. സോക്കറ്റ് ഇവന്റുകൾ കേൾക്കാനുള്ള എഫക്റ്റ്
   useEffect(() => {
-    let active = true;
-
-    const mediaConstraints = {
-      video: callType === 'video',
-      audio: true
-    };
+    if (!socket) return;
 
     const handleCallAccepted = (data) => {
-      console.log("✅ Call accepted signal received!");
+      console.log("✅ [WebRTC] Call accepted signal received!");
       setCallAccepted(true);
       if (connectionRef.current && !connectionRef.current.destroyed) {
-        // 💡 FIX 1: ബാക്ക്എൻഡിൽ നിന്ന് വരുന്നത് സിഗ്നൽ ഒബ്ജക്റ്റ് ആണെങ്കിൽ അത് വേർതിരിച്ചെടുക്കുന്നു
-        const signalData = data.signal ? data.signal : data;
-        connectionRef.current.signal(signalData);
+        connectionRef.current.signal(data.signal || data);
       }
     };
 
     const handleCallEnded = () => {
-      console.log("🚫 Remote user ended the call");
-      onEndCallRef.current(0); 
+      console.log("🚫 [WebRTC] Remote user ended the call");
+      stopAllTracks();
+      if (connectionRef.current) {
+        connectionRef.current.destroy();
+      }
+      const duration = startTimeRef.current ? Math.round((new Date() - startTimeRef.current) / 1000) : 0;
+      onEndCall(duration);
     };
 
-    if (!incomingSignalRef.current) {
-      socketRef.current.on('call-accepted', handleCallAccepted);
+    if (isCaller) {
+      socket.on('call-accepted', handleCallAccepted);
     }
-    socketRef.current.on('call-ended', handleCallEnded);
+    socket.on('call-ended', handleCallEnded);
+
+    return () => {
+      socket.off('call-accepted', handleCallAccepted);
+      socket.off('call-ended', handleCallEnded);
+    };
+  }, [socket, isCaller, onEndCall, stopAllTracks]);
+
+  // 2. ക്യാമറ/മൈക്ക് പെർമിഷൻ എടുക്കാനും, Caller ആണെങ്കിൽ കോൾ വിളിക്കാനും
+  useEffect(() => {
+    let active = true;
+    const mediaConstraints = {
+      video: callType === 'video',
+      audio: true
+    };
 
     navigator.mediaDevices.getUserMedia(mediaConstraints)
       .then((currentStream) => {
@@ -88,72 +89,110 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
         streamRef.current = currentStream;
         setStream(currentStream);
 
-        const peer = new Peer({ 
-          initiator: !incomingSignalRef.current, 
-          trickle: false, 
-          stream: currentStream,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-          }
-        });
+        // 🚀 PRO FIX: കോൾ വിളിക്കുന്ന ആൾ (Caller) ആണെങ്കിൽ മാത്രം ഉടനെ Peer ഉണ്ടാക്കുക
+        if (isCaller) {
+          const peer = new Peer({ 
+            initiator: true, 
+            trickle: false, 
+            stream: currentStream,
+            config: {
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+              ]
+            }
+          });
 
-        connectionRef.current = peer;
+          connectionRef.current = peer;
 
-        peer.on('signal', (data) => {
-          if (incomingSignalRef.current) {
-            // 💡 FIX 2: വിളിച്ച ആളുടെ യഥാർത്ഥ ഐഡിയിലേക്ക് (from) സിഗ്നൽ തിരികെ അയക്കുന്നു
-            const callerId = incomingSignalRef.current.from || activeChatIdRef.current;
-            socketRef.current.emit('accept-call', { signal: data, to: callerId });
-          } else {
-            socketRef.current.emit('call-user', { 
-              userToCall: activeChatIdRef.current, 
+          peer.on('signal', (data) => {
+            if (!socket) return;
+            socket.emit('call-user', { 
+              userToCall: activeChatId, 
               signalData: data, 
-              from: currentUserIdRef.current, 
+              from: currentUserId, 
               callType 
             });
-          }
-        });
+          });
 
-        peer.on('stream', (userStream) => {
-          console.log("✅ Remote stream received!"); 
-          if (active) {
-            setRemoteStream(userStream);
-          }
-        });
+          peer.on('stream', (remoteUserStream) => {
+            console.log("✅ [WebRTC] Remote stream attached!");
+            if (active) {
+              setRemoteStream(remoteUserStream);
+              setCallAccepted(true);
+            }
+          });
 
-        peer.on('connect', () => {
-          startTimeRef.current = new Date();
-        });
+          peer.on('connect', () => {
+            console.log("🔗 [WebRTC] P2P Connection Established!");
+            startTimeRef.current = new Date();
+          });
 
-        if (incomingSignalRef.current) {
-          setCallAccepted(true);
-          // 💡 FIX 3: incomingSignal-ൽ നിന്ന് കൃത്യമായ 'signal' ഡാറ്റ മാത്രം എടുത്ത് peer-ലേക്ക് പാസ്സ് ചെയ്യുന്നു
-          const actualSignal = incomingSignalRef.current.signal ? incomingSignalRef.current.signal : incomingSignalRef.current;
-          peer.signal(actualSignal);
+          peer.on('error', (err) => {
+            console.error("[WebRTC] Error:", err);
+          });
         }
       })
       .catch(err => {
-        console.error("Permission denied:", err);
-        if (active) onEndCallRef.current(0); 
+        console.error("Media access failed:", err);
+        setMediaError("Camera or Microphone permission denied.");
       });
 
     return () => {
       active = false;
-      if (socketRef.current) {
-        socketRef.current.off('call-accepted', handleCallAccepted);
-        socketRef.current.off('call-ended', handleCallEnded);
-      }
-      
-      if (connectionRef.current) connectionRef.current.destroy();
-      
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+      stopAllTracks();
+      if (connectionRef.current) {
+        connectionRef.current.destroy();
       }
     };
-  }, [callType]);
+  }, [callType, activeChatId, currentUserId, socket, isCaller, stopAllTracks]);
+
+  // 🚀 PRO FIX: കോൾ അറ്റൻഡ് ചെയ്യാനുള്ള ഫംഗ്ഷൻ (Receiver-ന് വേണ്ടി)
+  const answerCall = () => {
+    setCallAccepted(true);
+    
+    const peer = new Peer({ 
+      initiator: false, 
+      trickle: false, 
+      stream: stream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
+    });
+
+    connectionRef.current = peer;
+
+    peer.on('signal', (data) => {
+      socket.emit('accept-call', { signal: data, to: activeChatId });
+    });
+
+    peer.on('stream', (remoteUserStream) => {
+      console.log("✅ [WebRTC] Remote stream attached!");
+      setRemoteStream(remoteUserStream);
+    });
+
+    peer.on('connect', () => {
+      console.log("🔗 [WebRTC] P2P Connection Established!");
+      startTimeRef.current = new Date();
+    });
+
+    peer.signal(incomingSignal);
+  };
+
+  useEffect(() => {
+    if (stream && myVideo.current) {
+      myVideo.current.srcObject = stream;
+    }
+  }, [stream, isVideoOff]);
+
+  useEffect(() => {
+    if (remoteStream && userVideo.current) {
+      userVideo.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, callAccepted, isSpeakerOn]);
 
   const toggleMic = () => {
     if (stream && stream.getAudioTracks().length > 0) {
@@ -179,77 +218,148 @@ const VideoCall = ({ socket, currentUserId, activeChatId, incomingSignal, onEndC
   };
 
   const leaveCall = () => {
-    const endTime = new Date();
-    const duration = startTimeRef.current ? Math.round((endTime - startTimeRef.current) / 1000) : 0;
-    
-    socketRef.current.emit('end-call', { to: activeChatIdRef.current });
-
-    if (connectionRef.current) connectionRef.current.destroy();
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+    const duration = startTimeRef.current ? Math.round((new Date() - startTimeRef.current) / 1000) : 0;
+    if (socket) {
+      socket.emit('end-call', { to: activeChatId });
     }
-    
-    onEndCallRef.current(duration);
+    stopAllTracks();
+    if (connectionRef.current) {
+      connectionRef.current.destroy();
+    }
+    onEndCall(duration);
   };
 
   return (
-    <div className="absolute inset-0 bg-gray-900 z-[100] flex flex-col items-center justify-center">
-      <div className="relative w-full h-full flex items-center justify-center">
+    <div className="absolute inset-0 bg-slate-950 z-[200] flex flex-col items-center justify-center font-sans select-none">
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
         
-        {callAccepted ? (
-          callType === 'video' ? (
-            <video playsInline ref={userVideo} autoPlay muted={!isSpeakerOn} className="w-full h-full object-cover" />
-          ) : (
-            <div className="flex flex-col items-center text-white">
-              <div className="w-32 h-32 bg-slate-700 rounded-full flex items-center justify-center text-4xl mb-4 font-bold uppercase">
-                {activeChatId ? activeChatId.slice(-2) : 'AU'}
-              </div>
-              <div className="text-xl animate-pulse">On Audio Call...</div>
-              
-              <audio ref={userVideo} autoPlay playsInline muted={!isSpeakerOn} />
-            </div>
-          )
-        ) : (
-          <div className="text-white text-2xl animate-pulse">Calling...</div>
-        )}
-
-        {stream && callType === 'video' && (
-          <div className="absolute top-6 right-6 w-32 h-48 bg-gray-850 rounded-xl overflow-hidden border-2 border-white shadow-lg z-10">
-            {isVideoOff && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800 text-gray-400">
-                <VideoOff size={24} />
-              </div>
-            )}
-            <video 
-              playsInline 
-              ref={myVideo} 
-              autoPlay 
-              muted 
-              className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : 'block'}`} 
-            />
+        {/* Media Error State */}
+        {mediaError && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm p-6 text-center">
+            <AlertCircle size={48} className="text-red-500 mb-4" />
+            <h2 className="text-white text-xl font-bold mb-2">Media Access Error</h2>
+            <p className="text-slate-400 mb-6">{mediaError}</p>
+            <button onClick={leaveCall} className="px-6 py-2 bg-red-600 text-white rounded-full font-semibold hover:bg-red-500">
+              Close Call
+            </button>
           </div>
         )}
 
-        {/* Control Bar */}
-        <div className="absolute bottom-10 flex gap-6 px-6 py-4 bg-slate-800/80 backdrop-blur-md rounded-full shadow-2xl z-20">
-          <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
-            {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
-          </button>
+        {/* Main Screen */}
+        {callAccepted && remoteStream ? (
+          /* കോൾ കണക്ട് ആയതിന് ശേഷമുള്ള സ്ക്രീൻ */
+          callType === 'video' ? (
+            <video playsInline ref={userVideo} autoPlay muted={!isSpeakerOn} className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center justify-center space-y-6">
+              {activeChatAvatar ? (
+                <img src={activeChatAvatar} alt={activeChatName} className="w-32 h-32 rounded-full border-4 border-emerald-500/50 shadow-lg shadow-emerald-950 object-cover" />
+              ) : (
+                <div className="w-32 h-32 bg-emerald-600/20 border-2 border-emerald-500/50 text-emerald-400 rounded-full flex items-center justify-center text-4xl font-black shadow-lg shadow-emerald-950">
+                  {activeChatName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex flex-col items-center">
+                <h2 className="text-white text-2xl font-bold">{activeChatName}</h2>
+                <div className="text-emerald-400 font-bold text-sm tracking-widest uppercase mt-2 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span> Ongoing Audio Call
+                </div>
+              </div>
+              <audio ref={userVideo} autoPlay playsInline muted={!isSpeakerOn} />
+            </div>
+          )
+        ) : !isCaller && !callAccepted ? (
+          /* 🚀 PRO FIX: കോൾ വരുമ്പോഴുള്ള INCOMING CALL സ്ക്രീൻ */
+          <div className="flex flex-col items-center space-y-8 z-50">
+            {activeChatAvatar ? (
+              <img src={activeChatAvatar} alt={activeChatName} className="w-32 h-32 rounded-full border-4 border-slate-700 animate-bounce object-cover shadow-2xl" />
+            ) : (
+              <div className="w-32 h-32 bg-slate-900 border-2 border-slate-700 text-slate-400 rounded-full flex items-center justify-center text-4xl font-black animate-bounce shadow-2xl">
+                {activeChatName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            
+            <div className="flex flex-col items-center text-center">
+              <h2 className="text-white text-3xl font-bold mb-2">{activeChatName}</h2>
+              <p className="text-emerald-400 font-medium text-lg tracking-wider animate-pulse">
+                Incoming {callType} call...
+              </p>
+            </div>
 
-          <button onClick={toggleSpeaker} className={`p-4 rounded-full ${!isSpeakerOn ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
-            {!isSpeakerOn ? <VolumeX size={24} /> : <Volume2 size={24} />}
-          </button>
+            <div className="flex items-center gap-10 mt-8">
+              <button 
+                onClick={leaveCall} 
+                className="w-16 h-16 bg-red-600 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-600/30 transition-transform active:scale-95"
+                title="Reject"
+              >
+                <PhoneOff size={28} />
+              </button>
 
-          {callType === 'video' && (
-            <button onClick={toggleVideo} className={`p-4 rounded-full ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-gray-600/50 text-white'}`}>
-              {isVideoOff ? <VideoOff size={24} /> : <VideoIcon size={24} />}
+              <button 
+                onClick={answerCall} 
+                disabled={!stream}
+                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 ${!stream ? 'bg-emerald-800/50 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'}`}
+                title="Accept"
+              >
+                <Phone size={28} className="text-white" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* കോൾ വിളിക്കുന്ന ആൾക്കുള്ള CALLING സ്ക്രീൻ */
+          <div className="flex flex-col items-center space-y-4">
+            {activeChatAvatar ? (
+              <img src={activeChatAvatar} alt={activeChatName} className="w-24 h-24 rounded-full border-2 border-slate-700 animate-pulse object-cover" />
+            ) : (
+              <div className="w-24 h-24 bg-slate-900 border border-slate-800 text-slate-400 rounded-full flex items-center justify-center text-3xl font-black animate-pulse">
+                {activeChatName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="flex flex-col items-center text-center">
+              <h2 className="text-white text-xl font-bold">{activeChatName}</h2>
+              <div className="text-slate-400 font-medium text-sm tracking-wider animate-bounce mt-2">
+                Calling {callType.toUpperCase()}...
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Local Video Overlay (Mini Screen) */}
+        {stream && callType === 'video' && (
+          <div className={`absolute top-6 right-6 w-28 sm:w-36 h-40 sm:h-52 bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl transition-all duration-300 ${!callAccepted && !isCaller ? 'opacity-0 pointer-events-none' : 'z-10'}`}>
+            {isVideoOff ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-500">
+                <VideoOff size={24} />
+              </div>
+            ) : (
+              <video playsInline ref={myVideo} autoPlay muted className="w-full h-full object-cover transform scale-x-[-1]" />
+            )}
+          </div>
+        )}
+
+        {/* Bottom Control Bar - കോൾ കണക്ട് ആകുമ്പോഴും അല്ലെങ്കിൽ Caller ആകുമ്പോഴും മാത്രം കാണിക്കാൻ */}
+        {(callAccepted || isCaller) && (
+          <div className="absolute bottom-8 flex items-center gap-4 sm:gap-6 px-6 py-3.5 bg-slate-900/90 border border-slate-800 backdrop-blur-md rounded-full shadow-2xl z-20">
+            <button onClick={toggleMic} className={`p-3.5 rounded-full transition-all active:scale-95 ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-800 hover:bg-slate-700 text-white'}`} title={isMuted ? "Unmute" : "Mute"}>
+              {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
             </button>
-          )}
 
-          <button onClick={leaveCall} className="p-4 bg-red-600 hover:bg-red-700 text-white rounded-full">
-            <PhoneOff size={24} />
-          </button>
-        </div>
+            <button onClick={toggleSpeaker} className={`p-3.5 rounded-full transition-all active:scale-95 ${!isSpeakerOn ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-800 hover:bg-slate-700 text-white'}`} title={isSpeakerOn ? "Speaker Off" : "Speaker On"}>
+              {!isSpeakerOn ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+
+            {callType === 'video' && (
+              <button onClick={toggleVideo} className={`p-3.5 rounded-full transition-all active:scale-95 ${isVideoOff ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-800 hover:bg-slate-700 text-white'}`} title={isVideoOff ? "Start Video" : "Stop Video"}>
+                {isVideoOff ? <VideoOff size={20} /> : <VideoIcon size={20} />}
+              </button>
+            )}
+
+            <button onClick={leaveCall} className="p-3.5 bg-red-600 hover:bg-red-500 text-white rounded-full shadow-lg shadow-red-600/30 transition-all active:scale-95" title="End Call">
+              <PhoneOff size={20} />
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );

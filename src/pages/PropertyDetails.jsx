@@ -7,19 +7,14 @@ import {
   Send, X, Phone, Video 
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
-
-// Socket & Auth ഇമ്പോർട്ട് ചെയ്യുന്നു
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-
-// VideoCall കമ്പോണൻ്റ് ഇമ്പോർട്ട് ചെയ്യുന്നു
 import VideoCall from '../components/VideoCall'; 
 
 const BACKEND_URL = 'http://localhost:5000'; 
 
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return '';
-  if (typeof imagePath !== 'string') return '';
+  if (!imagePath || typeof imagePath !== 'string') return '';
   if (imagePath.startsWith('http')) return imagePath; 
   const cleanPath = imagePath.replace(/\\/g, '/').replace(/^\//, '');
   return `${BACKEND_URL}/${cleanPath}`; 
@@ -49,7 +44,6 @@ const PropertyDetails = () => {
   const [callType, setCallType] = useState('audio');
   const [incomingCallData, setIncomingCallData] = useState(null);
 
-  // 💡 FIX: isCalling സ്റ്റേറ്റ് ട്രാക്ക് ചെയ്യാൻ useRef ഉപയോഗിക്കുന്നു
   const isCallingRef = useRef(isCalling);
 
   useEffect(() => {
@@ -58,7 +52,10 @@ const PropertyDetails = () => {
 
   const ownerId = property?.owner?._id || property?.ownerId || property?.owner;
 
-  // പ്രോപ്പർട്ടി വിവരങ്ങൾ ലോഡ് ചെയ്യാൻ
+  // 💡 FIX: ഇൻകമിംഗ് കോൾ ആണെങ്കിൽ വിളിച്ച ആളുടെ ഐഡിയും, ഔട്ട്ഗോയിംഗ് ആണെങ്കിൽ ഓണറുടെ ഐഡിയും കൃത്യമായി എടുക്കുന്നു
+  const callTargetId = incomingCallData ? (incomingCallData.from?._id || incomingCallData.from) : ownerId;
+
+  // Fetch Property Details
   useEffect(() => {
     const fetchPropertyDetails = async () => {
       try {
@@ -80,14 +77,14 @@ const PropertyDetails = () => {
         console.error("Error fetching property details:", err);
         setFetchError(true);
       } finally {
-        loading && setLoading(false);
+        setLoading(false);
       }
     };
 
     fetchPropertyDetails();
   }, [id]);
 
-  // ചാറ്റ് ഹിസ്റ്ററി ഡാറ്റാബേസിൽ നിന്ന് ലോഡ് ചെയ്യുന്നു
+  // Fetch Chat History
   useEffect(() => {
     if (!isChatOpen || !ownerId || !currentUserId) return;
 
@@ -112,7 +109,7 @@ const PropertyDetails = () => {
     fetchChatHistory();
   }, [isChatOpen, ownerId, currentUserId]);
 
-  // 💡 FIX: Socket വഴിയുള്ള ഇൻകമിംഗ് മെസ്സേജുകളും കോളുകളും കേൾക്കാൻ (Optimized)
+  // Socket Listener Optimization
   useEffect(() => {
     if (!socket || !ownerId) return;
 
@@ -124,7 +121,6 @@ const PropertyDetails = () => {
     };
 
     const incomingCallHandler = (data) => {
-      // 💡 FIX: isCallingRef.current ഉപയോഗിച്ച് ചെക്ക് ചെയ്യുന്നു
       if (!isCallingRef.current) {
         setIncomingCallData(data);
       }
@@ -137,14 +133,13 @@ const PropertyDetails = () => {
       socket.off('receive-message', receiveMessageHandler);
       socket.off('incoming-call', incomingCallHandler);
     };
-  }, [socket, ownerId]); // 💡 FIX: ഡിപെൻഡൻസിയിൽ നിന്ന് isCalling ഒഴിവാക്കി
+  }, [socket, ownerId]);
 
-  // ചാറ്റ് എപ്പോഴും താഴേക്ക് സ്ക്രോൾ ചെയ്യാൻ
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isChatOpen]);
 
-  // മെസ്സേജ് അയക്കാൻ
+  // Send Message
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -169,11 +164,9 @@ const PropertyDetails = () => {
 
       if (res.ok && resData.success) {
         const savedMessage = resData.data;
-
         if (socket) {
           socket.emit('send-message', savedMessage);
         }
-
         setMessages((prev) => [...prev, savedMessage]);
         setNewMessage('');
       }
@@ -182,7 +175,7 @@ const PropertyDetails = () => {
     }
   };
 
-  // കോൾ തുടങ്ങാനുള്ള ഫംഗ്ഷൻ
+  // Start Call
   const handleStartCall = (type) => {
     if (!user) {
       alert("Please login to call the owner.");
@@ -192,7 +185,7 @@ const PropertyDetails = () => {
     setIsCalling(true);
   };
 
-  // കോൾ തീരുമ്പോൾ കോൾ ഡ്യൂറേഷൻ ഡാറ്റാബേസിൽ സേവ് ചെയ്യുന്നു
+  // End Call & Sync Log
   const handleEndCall = async (duration) => {
     setIsCalling(false);
     setIncomingCallData(null);
@@ -203,7 +196,7 @@ const PropertyDetails = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: id,
-          receiverId: ownerId,
+          receiverId: callTargetId,
           messageType: 'call',
           callDetails: { callType, duration }
         })
@@ -251,27 +244,27 @@ const PropertyDetails = () => {
   return (
     <div className="min-h-screen bg-white pb-16 font-sans text-slate-900 antialiased selection:bg-slate-900 selection:text-white">
       
-      {/* 💡 IN-APP VIDEO/AUDIO CALL COMPONENT */}
+      {/* 💡 VIDEO/AUDIO CALL COMPONENT */}
       {isCalling && (
         <VideoCall 
           socket={socket}
           currentUserId={currentUserId}
-          activeChatId={ownerId}
+          activeChatId={callTargetId} 
           callType={callType}
           incomingSignal={incomingCallData?.signal || null}
           onEndCall={handleEndCall}
         />
       )}
 
-      {/* 💡 INCOMING CALL MODAL (z-[110] - ഏറ്റവും മുകളിൽ) */}
+      {/* INCOMING CALL MODAL */}
       {incomingCallData && !isCalling && (
         <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white p-8 rounded-2xl text-center shadow-2xl animate-bounce">
             <div className="w-20 h-20 bg-slate-900 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 animate-pulse">
-              {incomingCallData.from.slice(-2).toUpperCase()}
+              {callTargetId ? String(callTargetId).slice(-2).toUpperCase() : 'CU'}
             </div>
             <h3 className="text-xl font-bold mb-2">Incoming {incomingCallData.callType} Call</h3>
-            <p className="text-slate-500 mb-6">Owner is calling you...</p>
+            <p className="text-slate-500 mb-6">User is calling you...</p>
             <div className="flex gap-4 justify-center">
               <button 
                 onClick={() => {
@@ -284,7 +277,7 @@ const PropertyDetails = () => {
               <button 
                 onClick={() => {
                   setIncomingCallData(null);
-                  if(socket) socket.emit('end-call', { to: incomingCallData.from });
+                  if (socket) socket.emit('end-call', { to: callTargetId });
                 }} 
                 className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors">
                 Decline
@@ -304,7 +297,7 @@ const PropertyDetails = () => {
         </span>
       </div>
 
-      {/* PREMIUM IMAGE GALLERY HUB */}
+      {/* IMAGE GALLERY */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 relative bg-slate-100 rounded-2xl overflow-hidden h-[260px] md:h-[460px] group border border-slate-200">
@@ -327,7 +320,7 @@ const PropertyDetails = () => {
                 <div key={idx} onClick={() => setSelectedImage(currentImgUrl)} className={`relative h-20 w-28 sm:w-36 lg:w-full flex-shrink-0 snap-start rounded-xl overflow-hidden cursor-pointer border-2 transition-all bg-slate-100 ${selectedImage === currentImgUrl ? 'border-slate-900 scale-95 shadow-sm' : 'border-transparent opacity-70 hover:opacity-100'}`}>
                   <img src={currentImgUrl} alt={room.roomType || 'Room'} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                   <div className="absolute inset-0 bg-black/20 flex items-end p-1.5">
-                    <span className="text-[10px] font-bold text-white bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-xs line-clamp-1">{room.roomType || `Image ${idx + 1}`}</span>
+                    <span className="text-[10px] font-bold text-white bg-black/40 px-1.5 py-0.5 rounded-md line-clamp-1">{room.roomType || `Image ${idx + 1}`}</span>
                   </div>
                 </div>
               );
@@ -336,7 +329,7 @@ const PropertyDetails = () => {
         </div>
       </div>
 
-      {/* CORE DETAILS LAYOUT */}
+      {/* DETAILS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-2 space-y-8">
           <div className="space-y-4">
@@ -372,6 +365,7 @@ const PropertyDetails = () => {
           )}
         </div>
 
+        {/* SIDE PANEL */}
         <div className="lg:col-span-1">
           <div className="border border-slate-150 rounded-2xl p-6 shadow-xs bg-white sticky top-6 space-y-6">
             <div className="flex justify-between items-baseline">
@@ -406,11 +400,10 @@ const PropertyDetails = () => {
         </div>
       </div>
 
-      {/* SLIDE OVER LIVE CHAT BOX */}
+      {/* LIVE CHAT BOX */}
       <AnimatePresence>
         {isChatOpen && (
           <>
-            {/* 💡 ബാക്ക്ഡ്രോപ്പ് Z-Index z-[90] ആക്കി ഉയർത്തി */}
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
@@ -419,7 +412,6 @@ const PropertyDetails = () => {
               className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-xs" 
             />
             
-            {/* 💡 ചാറ്റ് ബോക്സ് Z-Index z-[100] ആക്കി ഉയർത്തി. ഇത് ബോട്ടം നാവ്ബാറിന് മുകളിൽ വരും */}
             <motion.div 
               initial={{ x: '100%' }} 
               animate={{ x: 0 }} 
@@ -427,7 +419,6 @@ const PropertyDetails = () => {
               transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
               className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white z-[100] shadow-2xl flex flex-col border-l border-slate-100"
             >
-              
               <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-950 text-white">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-xs border border-slate-700">
@@ -482,7 +473,6 @@ const PropertyDetails = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* 💡 ഇൻപുട്ട് ഫീൽഡ് ഇപ്പോൾ ഏറ്റവും താഴെ മറയാതെ കൃത്യമായി കാണാം */}
               <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-100 bg-white flex items-center gap-2">
                 <input
                   type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your message..."
