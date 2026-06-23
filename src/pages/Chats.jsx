@@ -196,7 +196,6 @@ const Chats = () => {
     };
 
     const handleIncomingCall = (data) => {
-      console.log("📞 Incoming call event triggered:", data);
       setCallData({
         isActive: true,
         signal: data.signal || data.signalData,
@@ -294,10 +293,8 @@ const Chats = () => {
   }, [contacts, searchQuery]);
 
   return (
-    // PRO FIX: Changed h-[100dvh] to calc height to avoid double scrollbars causing layout breaks.
-    // overflow-hidden prevents the main window from scrolling, fixing headers/footers.
-    <div className={`flex w-full h-[calc(100vh-75px)] overflow-hidden justify-center ${theme.appBg} transition-colors duration-300`}>
-      <div className={`flex w-full max-w-[1600px] h-full ${theme.panelBg} overflow-hidden relative`}>
+    <div className={`flex w-full h-[calc(100dvh-75px)] overflow-hidden justify-center ${theme.appBg} transition-colors duration-300`}>
+      <div className={`flex w-full max-w-[1600px] mx-auto h-full ${theme.panelBg} overflow-hidden relative`}>
         
         {/* WebRTC Video/Audio Overlay */}
         {callData.isActive && (
@@ -313,9 +310,9 @@ const Chats = () => {
         )}
         
         {/* Left Hand Contacts Panel */}
-        <div className={`flex flex-col w-full md:w-[350px] lg:w-[400px] h-full border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+        {/* 📱 Mobile: Hidden when a chat is selected. Desktop: Always visible (w-400px) */}
+        <div className={`w-full md:w-[350px] lg:w-[400px] h-full flex-col shrink-0 border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
           
-          {/* 🔴 FIXED HEADER AREA */}
           <div className={`${theme.headerBg} p-3.5 flex justify-between items-center shrink-0 ${theme.iconColor}`}>
              <h2 className={`text-[20px] font-semibold ${theme.textPrimary}`}>Chats</h2>
              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-1.5 hover:text-white rounded-full transition-colors">
@@ -323,7 +320,6 @@ const Chats = () => {
              </button>
           </div>
           
-          {/* 🔴 FIXED SEARCH AREA */}
           <div className={`p-2 border-b shrink-0 ${theme.border}`}>
             <div className={`${theme.headerBg} flex items-center rounded-lg px-3 py-1.5 gap-3`}>
               <Search className={theme.textSecondary} size={18} />
@@ -337,7 +333,6 @@ const Chats = () => {
             </div>
           </div>
           
-          {/* 🟢 SCROLLABLE CONTACT LIST AREA */}
           <div className="flex-1 overflow-y-auto">
             {filteredContacts.map((contact) => {
               const cid = getUserId(contact);
@@ -373,19 +368,22 @@ const Chats = () => {
         </div>
         
         {/* Right Hand Chat Space Window */}
-        <ChatWindow 
-          activeChat={activeChat} 
-          setActiveChat={setActiveChat} 
-          currentUserId={currentUserId} 
-          socket={socket}
-          chatHistory={chatHistory} 
-          setChatHistory={setChatHistory} 
-          setContacts={setContacts} 
-          handleStartCall={handleStartCall} 
-          theme={theme} 
-          isDarkMode={isDarkMode} 
-          setIsDarkMode={setIsDarkMode}
-        />
+        {/* 📱 Mobile: Visible only when a chat is selected. Desktop: Always visible */}
+        <div className={`w-full h-full flex-col flex-1 min-w-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
+          <ChatWindow 
+            activeChat={activeChat} 
+            setActiveChat={setActiveChat} 
+            currentUserId={currentUserId} 
+            socket={socket}
+            chatHistory={chatHistory} 
+            setChatHistory={setChatHistory} 
+            setContacts={setContacts} 
+            handleStartCall={handleStartCall} 
+            theme={theme} 
+            isDarkMode={isDarkMode} 
+            setIsDarkMode={setIsDarkMode}
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,3 @@
-// VideoCall.jsx
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Peer from 'simple-peer/simplepeer.min.js';
 import { Phone, PhoneOff, Mic, MicOff, Video as VideoIcon, VideoOff, Volume2, VolumeX, AlertCircle } from 'lucide-react';
@@ -29,7 +27,54 @@ const VideoCall = ({
   const userVideo = useRef(null);
   const connectionRef = useRef(null);
   const streamRef = useRef(null);
-  const hasEndedRef = useRef(false); // 🚀 PRO FIX: കോൾ ഒരു തവണ മാത്രം എൻഡ് ചെയ്യാൻ വേണ്ടിയുള്ള സേഫ്റ്റി ലോക്ക്
+  const hasEndedRef = useRef(false);
+
+  // 🎵 AUDIO REFS
+  const ringtoneRef = useRef(null);
+  const ringbackRef = useRef(null);
+
+  // 🎵 Safe Client-Side Audio Initialization
+  useEffect(() => {
+    ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+    ringbackRef.current = new Audio('/sounds/ringback.mp3');
+    
+    ringtoneRef.current.loop = true;
+    ringbackRef.current.loop = true;
+
+    // Cleanup audio on component unmount
+    return () => {
+      if (ringtoneRef.current) {
+        ringtoneRef.current.pause();
+        ringtoneRef.current.currentTime = 0;
+      }
+      if (ringbackRef.current) {
+        ringbackRef.current.pause();
+        ringbackRef.current.currentTime = 0;
+      }
+    };
+  }, []);
+
+  // 🎵 Play/Pause Audio based on Call Status
+  useEffect(() => {
+    if (!ringtoneRef.current || !ringbackRef.current) return;
+
+    // കോൾ കണക്ട് ആയിട്ടില്ലെങ്കിൽ സൗണ്ട് പ്ലേ ചെയ്യുക
+    if (!callAccepted) {
+      if (isCaller) {
+        // വിളിക്കുന്ന ആളാണെങ്കിൽ Ringback കേൾപ്പിക്കുക
+        ringbackRef.current.play().catch(e => console.log("Ringback play blocked by browser:", e));
+      } else {
+        // കോൾ വരുന്ന ആളാണെങ്കിൽ Ringtone കേൾപ്പിക്കുക
+        ringtoneRef.current.play().catch(e => console.log("Ringtone play blocked by browser:", e));
+      }
+    } else {
+      // കോൾ അറ്റൻഡ് ചെയ്താൽ എല്ലാ സൗണ്ടും നിർത്തുക
+      ringtoneRef.current.pause();
+      ringtoneRef.current.currentTime = 0;
+      ringbackRef.current.pause();
+      ringbackRef.current.currentTime = 0;
+    }
+  }, [isCaller, callAccepted]);
 
   const stopAllTracks = useCallback(() => {
     if (streamRef.current) {
@@ -46,6 +91,10 @@ const VideoCall = ({
     if (hasEndedRef.current) return;
     hasEndedRef.current = true;
 
+    // 🎵 Force stop sounds on end call
+    if (ringtoneRef.current) ringtoneRef.current.pause();
+    if (ringbackRef.current) ringbackRef.current.pause();
+
     stopAllTracks();
     if (connectionRef.current) {
       try {
@@ -55,7 +104,6 @@ const VideoCall = ({
       }
     }
     // 💡 ഇവിടെ നമ്മൾ duration-ൊപ്പം 'isCaller' കൂടി അയക്കുന്നു.
-    // ഇത് ഉപയോഗിച്ച് Chats.jsx ഫയലിൽ "if(isCaller)" ആണെങ്കിൽ മാത്രം DB-യിലേക്ക് മെസ്സേജ് വിട്ടാൽ മതി!
     onEndCall(duration, isCaller);
   }, [isCaller, onEndCall, stopAllTracks]);
 
@@ -168,6 +216,12 @@ const VideoCall = ({
   // കോൾ അറ്റൻഡ് ചെയ്യാനുള്ള ഫംഗ്ഷൻ (Receiver-ന് വേണ്ടി)
   const answerCall = () => {
     setCallAccepted(true);
+    
+    // 🎵 അറ്റൻഡ് ചെയ്താൽ ഉടൻ റിംഗ്‌ടോൺ നിർത്തുന്നു
+    if (ringtoneRef.current) {
+      ringtoneRef.current.pause();
+      ringtoneRef.current.currentTime = 0;
+    }
     
     const peer = new Peer({ 
       initiator: false, 
