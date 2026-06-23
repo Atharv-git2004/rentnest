@@ -1,3 +1,5 @@
+// VideoCall.jsx
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Peer from 'simple-peer/simplepeer.min.js';
 import { Phone, PhoneOff, Mic, MicOff, Video as VideoIcon, VideoOff, Volume2, VolumeX, AlertCircle } from 'lucide-react';
@@ -27,6 +29,7 @@ const VideoCall = ({
   const userVideo = useRef(null);
   const connectionRef = useRef(null);
   const streamRef = useRef(null);
+  const hasEndedRef = useRef(false); // 🚀 PRO FIX: കോൾ ഒരു തവണ മാത്രം എൻഡ് ചെയ്യാൻ വേണ്ടിയുള്ള സേഫ്റ്റി ലോക്ക്
 
   const stopAllTracks = useCallback(() => {
     if (streamRef.current) {
@@ -37,6 +40,24 @@ const VideoCall = ({
       streamRef.current = null;
     }
   }, []);
+
+  // 🚀 PRO FIX: കോൾ കട്ട് ചെയ്യുന്ന പ്രോസസ്സ് രണ്ടുപേരിലും സിംഗിൾ ടൈം ആക്കാൻ ഒരു കോമൺ ഫങ്ക്ഷൻ
+  const endCallSequence = useCallback((duration) => {
+    if (hasEndedRef.current) return;
+    hasEndedRef.current = true;
+
+    stopAllTracks();
+    if (connectionRef.current) {
+      try {
+        connectionRef.current.destroy();
+      } catch (err) {
+        console.log("Peer already destroyed");
+      }
+    }
+    // 💡 ഇവിടെ നമ്മൾ duration-ൊപ്പം 'isCaller' കൂടി അയക്കുന്നു.
+    // ഇത് ഉപയോഗിച്ച് Chats.jsx ഫയലിൽ "if(isCaller)" ആണെങ്കിൽ മാത്രം DB-യിലേക്ക് മെസ്സേജ് വിട്ടാൽ മതി!
+    onEndCall(duration, isCaller);
+  }, [isCaller, onEndCall, stopAllTracks]);
 
   // 1. സോക്കറ്റ് ഇവന്റുകൾ കേൾക്കാനുള്ള എഫക്റ്റ്
   useEffect(() => {
@@ -52,12 +73,8 @@ const VideoCall = ({
 
     const handleCallEnded = () => {
       console.log("🚫 [WebRTC] Remote user ended the call");
-      stopAllTracks();
-      if (connectionRef.current) {
-        connectionRef.current.destroy();
-      }
       const duration = startTimeRef.current ? Math.round((new Date() - startTimeRef.current) / 1000) : 0;
-      onEndCall(duration);
+      endCallSequence(duration);
     };
 
     if (isCaller) {
@@ -69,7 +86,7 @@ const VideoCall = ({
       socket.off('call-accepted', handleCallAccepted);
       socket.off('call-ended', handleCallEnded);
     };
-  }, [socket, isCaller, onEndCall, stopAllTracks]);
+  }, [socket, isCaller, endCallSequence]);
 
   // 2. ക്യാമറ/മൈക്ക് പെർമിഷൻ എടുക്കാനും, Caller ആണെങ്കിൽ കോൾ വിളിക്കാനും
   useEffect(() => {
@@ -89,7 +106,6 @@ const VideoCall = ({
         streamRef.current = currentStream;
         setStream(currentStream);
 
-        // 🚀 PRO FIX: കോൾ വിളിക്കുന്ന ആൾ (Caller) ആണെങ്കിൽ മാത്രം ഉടനെ Peer ഉണ്ടാക്കുക
         if (isCaller) {
           const peer = new Peer({ 
             initiator: true, 
@@ -140,14 +156,16 @@ const VideoCall = ({
 
     return () => {
       active = false;
-      stopAllTracks();
-      if (connectionRef.current) {
-        connectionRef.current.destroy();
+      if (!hasEndedRef.current) {
+        stopAllTracks();
+        if (connectionRef.current) {
+          connectionRef.current.destroy();
+        }
       }
     };
   }, [callType, activeChatId, currentUserId, socket, isCaller, stopAllTracks]);
 
-  // 🚀 PRO FIX: കോൾ അറ്റൻഡ് ചെയ്യാനുള്ള ഫംഗ്ഷൻ (Receiver-ന് വേണ്ടി)
+  // കോൾ അറ്റൻഡ് ചെയ്യാനുള്ള ഫംഗ്ഷൻ (Receiver-ന് വേണ്ടി)
   const answerCall = () => {
     setCallAccepted(true);
     
@@ -222,11 +240,7 @@ const VideoCall = ({
     if (socket) {
       socket.emit('end-call', { to: activeChatId });
     }
-    stopAllTracks();
-    if (connectionRef.current) {
-      connectionRef.current.destroy();
-    }
-    onEndCall(duration);
+    endCallSequence(duration);
   };
 
   return (
@@ -247,7 +261,6 @@ const VideoCall = ({
 
         {/* Main Screen */}
         {callAccepted && remoteStream ? (
-          /* കോൾ കണക്ട് ആയതിന് ശേഷമുള്ള സ്ക്രീൻ */
           callType === 'video' ? (
             <video playsInline ref={userVideo} autoPlay muted={!isSpeakerOn} className="w-full h-full object-cover" />
           ) : (
@@ -269,7 +282,6 @@ const VideoCall = ({
             </div>
           )
         ) : !isCaller && !callAccepted ? (
-          /* 🚀 PRO FIX: കോൾ വരുമ്പോഴുള്ള INCOMING CALL സ്ക്രീൻ */
           <div className="flex flex-col items-center space-y-8 z-50">
             {activeChatAvatar ? (
               <img src={activeChatAvatar} alt={activeChatName} className="w-32 h-32 rounded-full border-4 border-slate-700 animate-bounce object-cover shadow-2xl" />
@@ -306,7 +318,6 @@ const VideoCall = ({
             </div>
           </div>
         ) : (
-          /* കോൾ വിളിക്കുന്ന ആൾക്കുള്ള CALLING സ്ക്രീൻ */
           <div className="flex flex-col items-center space-y-4">
             {activeChatAvatar ? (
               <img src={activeChatAvatar} alt={activeChatName} className="w-24 h-24 rounded-full border-2 border-slate-700 animate-pulse object-cover" />
@@ -324,7 +335,7 @@ const VideoCall = ({
           </div>
         )}
 
-        {/* Local Video Overlay (Mini Screen) */}
+        {/* Local Video Overlay */}
         {stream && callType === 'video' && (
           <div className={`absolute top-6 right-6 w-28 sm:w-36 h-40 sm:h-52 bg-slate-900 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl transition-all duration-300 ${!callAccepted && !isCaller ? 'opacity-0 pointer-events-none' : 'z-10'}`}>
             {isVideoOff ? (
@@ -337,7 +348,7 @@ const VideoCall = ({
           </div>
         )}
 
-        {/* Bottom Control Bar - കോൾ കണക്ട് ആകുമ്പോഴും അല്ലെങ്കിൽ Caller ആകുമ്പോഴും മാത്രം കാണിക്കാൻ */}
+        {/* Bottom Control Bar */}
         {(callAccepted || isCaller) && (
           <div className="absolute bottom-8 flex items-center gap-4 sm:gap-6 px-6 py-3.5 bg-slate-900/90 border border-slate-800 backdrop-blur-md rounded-full shadow-2xl z-20">
             <button onClick={toggleMic} className={`p-3.5 rounded-full transition-all active:scale-95 ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-800 hover:bg-slate-700 text-white'}`} title={isMuted ? "Unmute" : "Mute"}>

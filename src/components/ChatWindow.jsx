@@ -58,7 +58,6 @@ const AudioMessage = React.memo(({ fileUrl, getMediaUrl, durationProp }) => {
 
 AudioMessage.displayName = 'AudioMessage';
 
-// Helper function
 const getUserId = (userObj) => {
   if (!userObj) return '';
   if (typeof userObj === 'object') return (userObj._id || userObj.id || '').toString().trim();
@@ -83,7 +82,6 @@ const ChatWindow = ({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
 
-  // 🆕 എഡിറ്റ് & ഡിലീറ്റ് സ്റ്റേറ്റുകൾ 
   const [messageMenuOpen, setMessageMenuOpen] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
 
@@ -98,16 +96,14 @@ const ChatWindow = ({
   const BACKEND_URL = 'https://rentnest-backend-civ9.onrender.com'; 
 
   const getMediaUrl = useCallback((url) => {
-    if (!url) return '';
+    if (!url || typeof url !== 'string') return '';
     if (url.startsWith('http') || url.startsWith('blob:')) return url;
-    const cleanUrl = url.replace(/^\/api/, '').replace(/^\//, '');
-    return `${BACKEND_URL}/${cleanUrl}`;
+    return `${BACKEND_URL}${url.startsWith('/') ? '' : '/'}${url}`;
   }, []);
 
   const activeChatId = useMemo(() => activeChat ? getUserId(activeChat) : null, [activeChat]);
   const currentMessages = useMemo(() => activeChatId ? (chatHistory[activeChatId] || []) : [], [activeChatId, chatHistory]);
 
-  // Cleanup active audio tracks & intervals
   useEffect(() => {
     return () => {
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
@@ -117,7 +113,6 @@ const ChatWindow = ({
     };
   }, []);
 
-  // സ്ക്രോൾ ഡൗൺ
   useEffect(() => {
     setShowEmojiPicker(false);
     setTimeout(() => {
@@ -134,7 +129,6 @@ const ChatWindow = ({
     setNewMessage(prev => prev + emojiObject.emoji);
   }, []);
 
-  // 📷 FILE / PDF UPLOAD (മെച്ചപ്പെടുത്തിയ ലോജിക്ക്)
   const handleFileSelect = useCallback(async (e) => {
     const file = e.target.files[0];
     if (!file || !activeChatId) return;
@@ -199,13 +193,11 @@ const ChatWindow = ({
       setChatHistory((prev) => ({
         ...prev, [activeChatId]: (prev[activeChatId] || []).filter(msg => msg._id !== tempId)
       }));
-      alert("Failed to upload file. Please try again.");
     } finally {
       e.target.value = null; 
     }
   }, [activeChatId, currentUserId, activeChat, socket, setChatHistory, setContacts]);
 
-  // 🎙️ AUDIO RECORDING
   const stopMediaRecorder = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -309,13 +301,11 @@ const ChatWindow = ({
     stopMediaRecorder();
   }, [stopMediaRecorder]);
 
-
-  // ✏️ START EDIT
   const handleStartEdit = (msg) => {
     setMessageMenuOpen(null);
     setEditingMessage(msg);
     setNewMessage(msg.text);
-    fileInputRef.current.value = null; // Reset if any file is stuck
+    fileInputRef.current.value = null; 
   };
 
   const handleCancelEdit = () => {
@@ -323,11 +313,8 @@ const ChatWindow = ({
     setNewMessage('');
   };
 
-  // 🗑️ DELETE MESSAGE
   const handleDeleteMessage = async (msgId) => {
     setMessageMenuOpen(null);
-    
-    // Optimistic UI Update (ഉടൻ തന്നെ UI-ൽ മാറ്റം വരുത്താൻ)
     setChatHistory((prev) => ({
       ...prev,
       [activeChatId]: prev[activeChatId].map(msg => 
@@ -337,19 +324,16 @@ const ChatWindow = ({
 
     try {
       const response = await apiRequest(`/messages/${msgId}`, { method: 'DELETE' });
-      if (response.ok) {
-        // ഡിലീറ്റ് ആയ വിവരം സോക്കറ്റ് വഴി മറ്റേയാൾക്ക് അയക്കുന്നു
-        if (socket) {
-          socket.emit('delete-message', { messageId: msgId, senderId: currentUserId, receiverId: activeChatId });
-        }
+      if (!response.ok) throw new Error(`Failed to delete`);
+      
+      if (socket) {
+        socket.emit('delete-message', { messageId: msgId, senderId: currentUserId, receiverId: activeChatId });
       }
     } catch (err) {
-      console.error("Failed to delete message:", err);
-      alert("Failed to delete message. It might have already been deleted.");
+      console.error("Delete error:", err);
     }
   };
 
-  // ✉️ SEND TEXT & UPDATE EDITED TEXT
   const handleSendMessage = useCallback(async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentUserId || !activeChatId) return;
@@ -358,12 +342,9 @@ const ChatWindow = ({
     setNewMessage(''); 
     setShowEmojiPicker(false);
 
-    // ✏️ ഇത് എഡിറ്റ് ചെയ്യുന്നതാണെങ്കിൽ...
     if (editingMessage) {
       const msgId = editingMessage._id;
       handleCancelEdit();
-
-      // Optimistic UI update
       setChatHistory((prev) => ({
         ...prev,
         [activeChatId]: prev[activeChatId].map(msg => 
@@ -378,10 +359,9 @@ const ChatWindow = ({
           body: JSON.stringify({ text: messageText })
         });
         
-        const data = await response.json();
-        if (data.success) {
-           const finalEditedMsg = { ...data.data, senderId: currentUserId, receiverId: activeChatId };
-           if (socket) socket.emit('edit-message', finalEditedMsg);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && socket) socket.emit('edit-message', { ...data.data, senderId: currentUserId, receiverId: activeChatId });
         }
       } catch (err) {
         console.error("Error editing message:", err);
@@ -389,7 +369,6 @@ const ChatWindow = ({
       return; 
     }
 
-    // ✉️ സാധാരണ പുതിയ മെസ്സേജ് അയക്കാൻ...
     const tempId = Date.now().toString();
     const tempMessage = {
       _id: tempId, senderId: currentUserId, receiverId: activeChatId,
@@ -412,16 +391,15 @@ const ChatWindow = ({
         body: JSON.stringify({ receiverId: activeChatId, text: messageText, messageType: 'text' })
       });
       
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-
-      if (data.success) {
-        const savedMessage = { ...data.data, senderId: currentUserId, receiverId: activeChatId };
-        if (socket) socket.emit('send-message', savedMessage);
-        
-        setChatHistory((prev) => ({
-          ...prev, [activeChatId]: (prev[activeChatId] || []).map(msg => msg._id === tempId ? savedMessage : msg)
-        }));
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const savedMessage = { ...data.data, senderId: currentUserId, receiverId: activeChatId };
+          if (socket) socket.emit('send-message', savedMessage);
+          setChatHistory((prev) => ({
+            ...prev, [activeChatId]: (prev[activeChatId] || []).map(msg => msg._id === tempId ? savedMessage : msg)
+          }));
+        }
       }
     } catch (error) { 
       console.error("Error sending message:", error); 
@@ -443,19 +421,13 @@ const ChatWindow = ({
 
   return (
     <div className={`flex flex-col flex-1 h-full min-w-0 ${theme.panelBg} relative`} onClick={() => messageMenuOpen && setMessageMenuOpen(null)}>
-      
-      {/* Header */}
       <div className={`flex-none flex items-center justify-between px-3 sm:px-4 py-2.5 ${theme.headerBg} z-10 shadow-sm`}>
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <button onClick={() => setActiveChat(null)} className={`md:hidden p-1 sm:-ml-2 shrink-0 ${theme.iconColor} ${theme.hover} rounded-full`}>
             <ArrowLeft size={24} />
           </button>
           <div className="w-10 h-10 bg-[#6b7c85] text-[#e9edef] rounded-full flex items-center justify-center font-bold uppercase shrink-0 overflow-hidden">
-            {activeChat.avatar ? (
-               <img src={activeChat.avatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-               activeChat.name ? activeChat.name.charAt(0) : 'U'
-            )}
+            {activeChat.avatar ? <img src={activeChat.avatar} alt="Avatar" className="w-full h-full object-cover" /> : (activeChat.name ? activeChat.name.charAt(0) : 'U')}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className={`text-[16px] ${theme.textPrimary} font-medium truncate`}>{activeChat.name || 'User'}</h3>
@@ -476,7 +448,6 @@ const ChatWindow = ({
         </div>
       </div>
 
-      {/* Messages List */}
       <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${theme.chatBg} space-y-3 relative scroll-smooth`} onClick={() => showEmojiPicker && setShowEmojiPicker(false)}>
         {currentMessages.map((msg, index) => {
           const isMyMessage = getUserId(msg.senderId || msg.sender) === currentUserId;
@@ -484,39 +455,22 @@ const ChatWindow = ({
           
           return (
             <div key={msg._id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-1 relative group`}>
-              <div className={`max-w-[85%] sm:max-w-[70%] min-w-[100px] relative px-3 pt-1.5 pb-5 text-[15px] shadow-sm break-words flex flex-col ${
-                isMyMessage ? `${theme.msgMine} rounded-xl rounded-tr-none` : `${theme.msgOther} rounded-xl rounded-tl-none`   
-              }`}>
-                
-                {/* 🆕 Context Menu Dropdown Trigger */}
+              <div className={`max-w-[85%] sm:max-w-[70%] min-w-[100px] relative px-3 pt-1.5 pb-5 text-[15px] shadow-sm break-words flex flex-col ${isMyMessage ? `${theme.msgMine} rounded-xl rounded-tr-none` : `${theme.msgOther} rounded-xl rounded-tl-none`}`}>
                 {isMyMessage && !msg.isDeleted && msg.status !== 'sending' && (
-                  <div 
-                    className="absolute top-1.5 right-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full bg-black/10 z-10"
-                    onClick={(e) => { e.stopPropagation(); setMessageMenuOpen(msg._id); }}
-                  >
+                  <div className="absolute top-1.5 right-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full bg-black/10 z-10" onClick={(e) => { e.stopPropagation(); setMessageMenuOpen(msg._id); }}>
                     <ChevronDown size={16} className="opacity-80" />
                   </div>
                 )}
-
-                {/* 🆕 Context Menu Popup */}
                 {messageMenuOpen === msg._id && (
-                  <div className={`absolute top-6 right-2 w-32 ${isDarkMode ? 'bg-[#233138] text-white shadow-[#0b141a]' : 'bg-white text-black shadow-md'} rounded-md py-1 z-50 text-sm shadow-lg border ${theme.border}`}>
+                  <div className={`absolute top-6 right-2 w-32 ${isDarkMode ? 'bg-[#233138] text-white' : 'bg-white text-black'} rounded-md py-1 z-50 shadow-lg border ${theme.border}`}>
                     {msg.messageType === 'text' && (
-                       <button className="w-full text-left px-4 py-2 hover:bg-black/10 flex items-center gap-2" onClick={() => handleStartEdit(msg)}>
-                         <Edit2 size={14} /> Edit
-                       </button>
+                       <button className="w-full text-left px-4 py-2 hover:bg-black/10 flex items-center gap-2" onClick={() => handleStartEdit(msg)}><Edit2 size={14} /> Edit</button>
                     )}
-                    <button className="w-full text-left px-4 py-2 hover:bg-black/10 text-red-500 flex items-center gap-2" onClick={() => handleDeleteMessage(msg._id)}>
-                      <Trash2 size={14} /> Delete
-                    </button>
+                    <button className="w-full text-left px-4 py-2 hover:bg-black/10 text-red-500 flex items-center gap-2" onClick={() => handleDeleteMessage(msg._id)}><Trash2 size={14} /> Delete</button>
                   </div>
                 )}
-
-                {/* Message Content Render */}
                 {msg.isDeleted || msg.text === "This message was deleted" ? (
-                   <div className="flex items-center gap-1.5 opacity-60 italic text-[14.5px] pr-2 pt-0.5 text-gray-500">
-                      <Ban size={15} /> This message was deleted
-                   </div>
+                   <div className="flex items-center gap-1.5 opacity-60 italic text-[14.5px] pr-2 pt-0.5 text-gray-500"><Ban size={15} /> This message was deleted</div>
                 ) : (msg.messageType === 'call' || msg.callDetails?.callType) ? (
                   <div className="flex items-center gap-3 pr-4 pb-1 mt-1">
                     <div className={`p-3 rounded-full ${isMyMessage ? 'bg-black/10' : 'bg-gray-500/10'}`}>
@@ -533,44 +487,28 @@ const ChatWindow = ({
                   <AudioMessage fileUrl={msg.fileUrl} getMediaUrl={getMediaUrl} durationProp={msg.audioDuration} />
                 ) : msg.messageType === 'video' ? (
                   <div className="pb-2 pt-1 pr-3">
-                     <video controls className="rounded-md max-w-full h-auto max-h-[250px] outline-none bg-black/20">
-                        <source src={getMediaUrl(msg.fileUrl)} />
-                     </video>
+                     <video controls className="rounded-md max-w-full h-auto max-h-[250px] outline-none bg-black/20"><source src={getMediaUrl(msg.fileUrl)} /></video>
                   </div>
                 ) : msg.messageType === 'image' ? (
                   <div className="pb-2 pt-1 pr-3">
-                     <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer">
-                       <img src={getMediaUrl(msg.fileUrl)} alt="Uploaded" className="rounded-md max-w-full h-auto max-h-[250px] object-cover cursor-pointer hover:opacity-90 transition-opacity" />
-                     </a>
+                     <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer"><img src={getMediaUrl(msg.fileUrl)} alt="Uploaded" className="rounded-md max-w-full h-auto max-h-[250px] object-cover cursor-pointer hover:opacity-90" /></a>
                   </div>
                 ) : msg.messageType === 'pdf' || msg.messageType === 'file' ? (
                   <div className="pb-2 pt-1 flex items-center gap-2 pr-3">
-                    <div className="p-2.5 bg-black/10 rounded-lg text-red-500">
-                      <FileText size={22} />
-                    </div>
+                    <div className="p-2.5 bg-black/10 rounded-lg text-red-500"><FileText size={22} /></div>
                     <div className="flex flex-col min-w-0 pr-4">
-                      <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold underline truncate hover:opacity-80">
-                        {msg.fileUrl?.split('/').pop() || 'Document'}
-                      </a>
+                      <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold underline truncate">{msg.fileUrl?.split('/').pop() || 'Document'}</a>
                       <span className="text-[10px] uppercase opacity-60">Document</span>
                     </div>
                   </div>
                 ) : (
-                  <div className={`whitespace-pre-wrap leading-relaxed pr-3 ${msg.isEdited ? 'pr-8' : ''}`}>
-                    {msg.text}
-                  </div>
+                  <div className={`whitespace-pre-wrap leading-relaxed pr-3 ${msg.isEdited ? 'pr-8' : ''}`}>{msg.text}</div>
                 )}
-                
-                {/* Time, Edited tag, & Read Receipts */}
                 <div className={`text-[10.5px] ${theme.textSecondary} flex items-center gap-1 absolute bottom-1 right-2 select-none`}>
                   {msg.isEdited && !msg.isDeleted && <span className="italic opacity-70 mr-0.5">edited</span>}
                   <span>{msg.time || formatTime(msg.createdAt)}</span>
                   {isMyMessage && !msg.isDeleted && (
-                    msg.status === 'sending' ? (
-                      <Clock size={12} className="text-gray-400 animate-spin" />
-                    ) : (
-                      <CheckCheck size={15} className={tickColor} />
-                    )
+                    msg.status === 'sending' ? <Clock size={12} className="text-gray-400 animate-spin" /> : <CheckCheck size={15} className={tickColor} />
                   )}
                 </div>
               </div>
@@ -588,20 +526,16 @@ const ChatWindow = ({
 
       <input type="file" hidden ref={fileInputRef} onChange={handleFileSelect} accept="image/*,video/*,application/pdf" />
 
-      {/* 🆕 Edit Mode Banner */}
       {editingMessage && (
          <div className={`px-4 py-2.5 flex items-center justify-between border-t ${theme.border} ${theme.headerBg} shadow-inner`}>
             <div className="flex flex-col flex-1 min-w-0 border-l-4 border-[#00a884] pl-2">
                <span className={`text-[13px] font-bold text-[#00a884]`}>Edit Message</span>
                <span className={`text-[14px] ${theme.textSecondary} truncate w-full`}>{editingMessage.text}</span>
             </div>
-            <button onClick={handleCancelEdit} className={`p-1.5 rounded-full ${theme.hover} text-red-400`} title="Cancel Edit">
-              <X size={20}/>
-            </button>
+            <button onClick={handleCancelEdit} className={`p-1.5 rounded-full ${theme.hover} text-red-400`}><X size={20}/></button>
          </div>
       )}
 
-      {/* Input Form */}
       <form onSubmit={handleSendMessage} className={`flex-none px-2 sm:px-4 py-3 ${theme.inputBar} flex items-center gap-2 sm:gap-3`}>
         {!isRecording && (
           <>
@@ -610,16 +544,8 @@ const ChatWindow = ({
             ) : (
               <Smile size={26} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => setShowEmojiPicker(true)} />
             )}
-            
             <Paperclip size={24} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => fileInputRef.current.click()} />
-
-            <input 
-              type="text" 
-              placeholder="Type a message" 
-              value={newMessage} 
-              onChange={(e) => setNewMessage(e.target.value)} 
-              className={`flex-1 min-w-0 ${theme.inputBg} ${theme.textPrimary} px-4 py-2.5 rounded-lg outline-none text-[15px] shadow-sm`}
-            />
+            <input type="text" placeholder="Type a message" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className={`flex-1 min-w-0 ${theme.inputBg} ${theme.textPrimary} px-4 py-2.5 rounded-lg outline-none text-[15px] shadow-sm`} />
           </>
         )}
 
@@ -630,23 +556,15 @@ const ChatWindow = ({
               <span className="text-sm font-bold">{recordingTime}s</span>
             </div>
             <div className="flex items-center gap-3">
-              <button type="button" onClick={cancelRecording} className="p-2 bg-white hover:bg-gray-200 rounded-full text-red-500 transition-colors shadow-sm" title="Cancel Recording">
-                <X size={18} />
-              </button>
-              <button type="button" onClick={sendRecording} className="p-2 bg-[#00a884] hover:bg-[#029173] rounded-full text-white transition-colors shadow-sm" title="Send Audio">
-                <Send size={18} className="ml-0.5" />
-              </button>
+              <button type="button" onClick={cancelRecording} className="p-2 bg-white hover:bg-gray-200 rounded-full text-red-500 transition-colors shadow-sm"><X size={18} /></button>
+              <button type="button" onClick={sendRecording} className="p-2 bg-[#00a884] hover:bg-[#029173] rounded-full text-white transition-colors shadow-sm"><Send size={18} className="ml-0.5" /></button>
             </div>
           </div>
         ) : (
           newMessage.trim() ? (
-            <button type="submit" className="p-2.5 bg-[#00a884] text-white rounded-full hover:bg-[#029173] transition-colors shrink-0 shadow-md">
-              <Send size={20} className="ml-0.5" />
-            </button>
+            <button type="submit" className="p-2.5 bg-[#00a884] text-white rounded-full hover:bg-[#029173] transition-colors shrink-0 shadow-md"><Send size={20} className="ml-0.5" /></button>
           ) : (
-            <button type="button" className={`p-2.5 rounded-full ${theme.iconHover} shrink-0 transition-colors`} onClick={startRecording}>
-               <Mic size={24} className={theme.iconColor} />
-            </button>
+            <button type="button" className={`p-2.5 rounded-full ${theme.iconHover} shrink-0 transition-colors`} onClick={startRecording}><Mic size={24} className={theme.iconColor} /></button>
           )
         )}
       </form>

@@ -37,7 +37,7 @@ const Chats = () => {
     activeChatIdRef.current = activeChatId; 
   }, [activeChatId]);
 
-  // isCaller കൂടി സ്റ്റേറ്റിൽ ഉൾപ്പെടുത്തിയിട്ടുണ്ട്
+  // 💡 isCaller സ്റ്റേറ്റ് കൃത്യമായി നിലനിർത്തിയിരിക്കുന്നു
   const [callData, setCallData] = useState({
     isActive: false, 
     signal: null, 
@@ -213,7 +213,6 @@ const Chats = () => {
       });
     };
 
-    // 🆕 മെസ്സേജ് എഡിറ്റ് ചെയ്യുമ്പോൾ റിയൽ ടൈം ആയി അപ്ഡേറ്റ് ആകാൻ
     const handleMessageEdited = (updatedMessage) => {
       const msgSenderId = getUserId(updatedMessage.senderId || updatedMessage.sender);
       const chatPartnerId = msgSenderId === currentUserId 
@@ -229,21 +228,8 @@ const Chats = () => {
           )
         };
       });
-
-      // ആവശ്യമെങ്കിൽ Contacts ലിസ്റ്റിലെ lastMessage അപ്ഡേറ്റ് ചെയ്യാം (ഏറ്റവും പുതിയ മെസ്സേജ് ആണെങ്കിൽ മാത്രം)
-      setContacts((prevContacts) => {
-        return prevContacts.map(contact => {
-          if (getUserId(contact) === chatPartnerId && contact.lastMessage === "This message was deleted" === false) { // Basic check
-             // Here we might just leave the contact list alone unless it's strictly the last message, 
-             // but for now, updating chat history is the most important part.
-             return contact;
-          }
-          return contact;
-        });
-      });
     };
 
-    // 🆕 മെസ്സേജ് ഡിലീറ്റ് ചെയ്യുമ്പോൾ റിയൽ ടൈം ആയി അപ്ഡേറ്റ് ആകാൻ
     const handleMessageDeleted = ({ messageId, senderId, receiverId }) => {
       const parsedSenderId = getUserId(senderId);
       const parsedReceiverId = getUserId(receiverId);
@@ -266,16 +252,16 @@ const Chats = () => {
     socket.on('messages-read', handleMessagesRead);
     socket.on('call-ended', handleCallEnded);
     socket.on('incoming-call', handleIncomingCall);
-    socket.on('receive-edit', handleMessageEdited);       // 🆕 Added
-    socket.on('receive-delete', handleMessageDeleted);   // 🆕 Added
+    socket.on('receive-edit', handleMessageEdited);       
+    socket.on('receive-delete', handleMessageDeleted);   
 
     return () => {
       socket.off('receive-message', handleReceiveMessage);
       socket.off('messages-read', handleMessagesRead);
       socket.off('call-ended', handleCallEnded);
       socket.off('incoming-call', handleIncomingCall);
-      socket.off('receive-edit', handleMessageEdited);     // 🆕 Clean up
-      socket.off('receive-delete', handleMessageDeleted); // 🆕 Clean up
+      socket.off('receive-edit', handleMessageEdited);     
+      socket.off('receive-delete', handleMessageDeleted); 
     };
   }, [socket, currentUserId, getUserId]); 
 
@@ -298,10 +284,13 @@ const Chats = () => {
     });
   }, [socket, activeChatId]);
 
-  const handleEndOrRejectCall = useCallback((duration = 0) => {
+  // 🚀 PRO FIX: VideoCall.jsx-ൽ നിന്നും വരുന്ന 'isCallerSequence' ഫ്ലാഗ് ഉപയോഗിച്ച് ഒരു തവണ മാത്രം DB സേവ് ചെയ്യുന്നു!
+  const handleEndOrRejectCall = useCallback((duration = 0, isCallerSequence = false) => {
     const partner = callData.partnerId;
     if (socket && partner) socket.emit('end-call', { to: partner });
-    if (partner && callData.isActive) { 
+    
+    // 💡 കണ്ടീഷൻ ശ്രദ്ധിക്കുക: "isCallerSequence" ആണെങ്കിൽ മാത്രം DB റിക്വസ്റ്റ് പോകും
+    if (partner && callData.isActive && isCallerSequence) { 
       let callText = duration > 0 ? (Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : `${duration % 60}s`) : 'Missed Call';
       handleSendMessage(callText, 'call', partner, { callType: callData.callType, duration: Number(duration) });
     }
