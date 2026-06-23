@@ -11,7 +11,7 @@ const VideoCall = ({
   incomingSignal, 
   onEndCall, 
   callType = 'video',
-  isCaller // 🚀 PRO FIX: Caller ആണോ Receiver ആണോ എന്ന് തിരിച്ചറിയാൻ
+  isCaller // Caller ആണോ Receiver ആണോ എന്ന് തിരിച്ചറിയാൻ
 }) => {
   const [stream, setStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -32,14 +32,17 @@ const VideoCall = ({
   // 🎵 AUDIO REFS
   const ringtoneRef = useRef(null);
   const ringbackRef = useRef(null);
+  const connectedRef = useRef(null);
 
   // 🎵 Safe Client-Side Audio Initialization
   useEffect(() => {
     ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
     ringbackRef.current = new Audio('/sounds/ringback.mp3');
+    connectedRef.current = new Audio('/sounds/connected.mp3');
     
     ringtoneRef.current.loop = true;
     ringbackRef.current.loop = true;
+    connectedRef.current.loop = false;
 
     // Cleanup audio on component unmount
     return () => {
@@ -51,28 +54,32 @@ const VideoCall = ({
         ringbackRef.current.pause();
         ringbackRef.current.currentTime = 0;
       }
+      if (connectedRef.current) {
+        connectedRef.current.pause();
+        connectedRef.current.currentTime = 0;
+      }
     };
   }, []);
 
   // 🎵 Play/Pause Audio based on Call Status
   useEffect(() => {
-    if (!ringtoneRef.current || !ringbackRef.current) return;
+    if (!ringtoneRef.current || !ringbackRef.current || !connectedRef.current) return;
 
-    // കോൾ കണക്ട് ആയിട്ടില്ലെങ്കിൽ സൗണ്ട് പ്ലേ ചെയ്യുക
     if (!callAccepted) {
+      // കോൾ കണക്ട് ആയിട്ടില്ലെങ്കിൽ (എടുക്കുന്നത് വരെ) സൗണ്ട് പ്ലേ ചെയ്യുക
       if (isCaller) {
-        // വിളിക്കുന്ന ആളാണെങ്കിൽ Ringback കേൾപ്പിക്കുക
-        ringbackRef.current.play().catch(e => console.log("Ringback play blocked by browser:", e));
+        ringbackRef.current.play().catch(e => console.log("Ringback play blocked:", e));
       } else {
-        // കോൾ വരുന്ന ആളാണെങ്കിൽ Ringtone കേൾപ്പിക്കുക
-        ringtoneRef.current.play().catch(e => console.log("Ringtone play blocked by browser:", e));
+        ringtoneRef.current.play().catch(e => console.log("Ringtone play blocked:", e));
       }
     } else {
-      // കോൾ അറ്റൻഡ് ചെയ്താൽ എല്ലാ സൗണ്ടും നിർത്തുക
+      // കോൾ അറ്റൻഡ് ചെയ്താൽ ഉടൻ റിംഗിങ് നിർത്തുക, Connect സൗണ്ട് കേൾപ്പിക്കുക
       ringtoneRef.current.pause();
       ringtoneRef.current.currentTime = 0;
       ringbackRef.current.pause();
       ringbackRef.current.currentTime = 0;
+
+      connectedRef.current.play().catch(e => console.log("Connect sound blocked:", e));
     }
   }, [isCaller, callAccepted]);
 
@@ -86,14 +93,18 @@ const VideoCall = ({
     }
   }, []);
 
-  // 🚀 PRO FIX: കോൾ കട്ട് ചെയ്യുന്ന പ്രോസസ്സ് രണ്ടുപേരിലും സിംഗിൾ ടൈം ആക്കാൻ ഒരു കോമൺ ഫങ്ക്ഷൻ
+  // 🚀 കോൾ കട്ട് ചെയ്യുമ്പോൾ ഉള്ള കോമൺ ഫങ്ക്ഷൻ
   const endCallSequence = useCallback((duration) => {
     if (hasEndedRef.current) return;
     hasEndedRef.current = true;
 
-    // 🎵 Force stop sounds on end call
+    // 🎵 റിംഗിങ് നിർബന്ധമായും നിർത്തുക
     if (ringtoneRef.current) ringtoneRef.current.pause();
     if (ringbackRef.current) ringbackRef.current.pause();
+
+    // 🎵 Call Disconnect Sound (Component മാറിയാലും പ്ലേ ചെയ്യാൻ പുതിയ Audio ഇൻസ്റ്റൻസ് ഉപയോഗിക്കുന്നു)
+    const disconnectAudio = new Audio('/sounds/disconnected.mp3');
+    disconnectAudio.play().catch(e => console.log("Disconnect sound blocked:", e));
 
     stopAllTracks();
     if (connectionRef.current) {
@@ -103,7 +114,7 @@ const VideoCall = ({
         console.log("Peer already destroyed");
       }
     }
-    // 💡 ഇവിടെ നമ്മൾ duration-ൊപ്പം 'isCaller' കൂടി അയക്കുന്നു.
+    
     onEndCall(duration, isCaller);
   }, [isCaller, onEndCall, stopAllTracks]);
 
@@ -216,12 +227,6 @@ const VideoCall = ({
   // കോൾ അറ്റൻഡ് ചെയ്യാനുള്ള ഫംഗ്ഷൻ (Receiver-ന് വേണ്ടി)
   const answerCall = () => {
     setCallAccepted(true);
-    
-    // 🎵 അറ്റൻഡ് ചെയ്താൽ ഉടൻ റിംഗ്‌ടോൺ നിർത്തുന്നു
-    if (ringtoneRef.current) {
-      ringtoneRef.current.pause();
-      ringtoneRef.current.currentTime = 0;
-    }
     
     const peer = new Peer({ 
       initiator: false, 
