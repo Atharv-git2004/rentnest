@@ -305,7 +305,7 @@ const ChatWindow = ({
     setMessageMenuOpen(null);
     setEditingMessage(msg);
     setNewMessage(msg.text);
-    fileInputRef.current.value = null; 
+    if (fileInputRef.current) fileInputRef.current.value = null; 
   };
 
   const handleCancelEdit = () => {
@@ -317,20 +317,27 @@ const ChatWindow = ({
     setMessageMenuOpen(null);
     setChatHistory((prev) => ({
       ...prev,
-      [activeChatId]: prev[activeChatId].map(msg => 
+      [activeChatId]: (prev[activeChatId] || []).map(msg => 
         msg._id === msgId ? { ...msg, isDeleted: true, text: "This message was deleted", fileUrl: "" } : msg
       )
     }));
 
     try {
       const response = await apiRequest(`/messages/${msgId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(`Failed to delete`);
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+      
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
       
       if (socket) {
         socket.emit('delete-message', { messageId: msgId, senderId: currentUserId, receiverId: activeChatId });
       }
     } catch (err) {
-      console.error("Delete error:", err);
+      console.error("Delete error:", err.message);
     }
   };
 
@@ -347,7 +354,7 @@ const ChatWindow = ({
       handleCancelEdit();
       setChatHistory((prev) => ({
         ...prev,
-        [activeChatId]: prev[activeChatId].map(msg => 
+        [activeChatId]: (prev[activeChatId] || []).map(msg => 
           msg._id === msgId ? { ...msg, text: messageText, isEdited: true } : msg
         )
       }));
@@ -359,12 +366,17 @@ const ChatWindow = ({
           body: JSON.stringify({ text: messageText })
         });
         
-        if (response.ok) {
+        if (!response.ok) {
+          throw new Error(`Server returned status ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
           const data = await response.json();
           if (data.success && socket) socket.emit('edit-message', { ...data.data, senderId: currentUserId, receiverId: activeChatId });
         }
       } catch (err) {
-        console.error("Error editing message:", err);
+        console.error("Error editing message:", err.message);
       }
       return; 
     }
@@ -421,7 +433,9 @@ const ChatWindow = ({
 
   return (
     <div className={`flex flex-col flex-1 h-full min-w-0 ${theme.panelBg} relative`} onClick={() => messageMenuOpen && setMessageMenuOpen(null)}>
-      <div className={`flex-none flex items-center justify-between px-3 sm:px-4 py-2.5 ${theme.headerBg} z-10 shadow-sm`}>
+      
+      {/* 1. Fixed Header Layout: Removed absolute positioning to prevent disappearing or overlapping when scrolling */}
+      <div className={`flex items-center justify-between px-3 sm:px-4 py-2.5 ${theme.headerBg} z-10 shadow-sm flex-none`}> 
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <button onClick={() => setActiveChat(null)} className={`md:hidden p-1 sm:-ml-2 shrink-0 ${theme.iconColor} ${theme.hover} rounded-full`}>
             <ArrowLeft size={24} />
@@ -448,6 +462,7 @@ const ChatWindow = ({
         </div>
       </div>
 
+      {/* 2. Fixed Message List Layout: Removed pt-20 since the header is no longer absolute */}
       <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${theme.chatBg} space-y-3 relative scroll-smooth`} onClick={() => showEmojiPicker && setShowEmojiPicker(false)}>
         {currentMessages.map((msg, index) => {
           const isMyMessage = getUserId(msg.senderId || msg.sender) === currentUserId;
@@ -527,7 +542,7 @@ const ChatWindow = ({
       <input type="file" hidden ref={fileInputRef} onChange={handleFileSelect} accept="image/*,video/*,application/pdf" />
 
       {editingMessage && (
-         <div className={`px-4 py-2.5 flex items-center justify-between border-t ${theme.border} ${theme.headerBg} shadow-inner`}>
+         <div className={`px-4 py-2.5 flex items-center justify-between border-t ${theme.border} ${theme.headerBg} shadow-inner flex-none`}>
             <div className="flex flex-col flex-1 min-w-0 border-l-4 border-[#00a884] pl-2">
                <span className={`text-[13px] font-bold text-[#00a884]`}>Edit Message</span>
                <span className={`text-[14px] ${theme.textSecondary} truncate w-full`}>{editingMessage.text}</span>
@@ -543,7 +558,8 @@ const ChatWindow = ({
               <X size={26} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => setShowEmojiPicker(false)} />
             ) : (
               <Smile size={26} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => setShowEmojiPicker(true)} />
-            )}
+            )
+            }
             <Paperclip size={24} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => fileInputRef.current.click()} />
             <input type="text" placeholder="Type a message" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className={`flex-1 min-w-0 ${theme.inputBg} ${theme.textPrimary} px-4 py-2.5 rounded-lg outline-none text-[15px] shadow-sm`} />
           </>
