@@ -34,30 +34,47 @@ const VideoCall = ({
   const ringbackRef = useRef(null);
   const connectedRef = useRef(null);
 
-  // 🎵 Safe Client-Side Audio Initialization
+  // 🎵 Safe Client-Side Audio Initialization with Robust Looping
   useEffect(() => {
-    ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
-    ringbackRef.current = new Audio('/sounds/ringback.mp3');
-    connectedRef.current = new Audio('/sounds/connected.mp3');
+    const ringtone = new Audio('/sounds/ringtone.mp3');
+    const ringback = new Audio('/sounds/ringback.mp3');
+    const connected = new Audio('/sounds/connected.mp3');
     
-    ringtoneRef.current.loop = true;
-    ringbackRef.current.loop = true;
-    connectedRef.current.loop = false;
+    // Default loop property
+    ringtone.loop = true;
+    ringback.loop = true;
+    connected.loop = false;
 
-    // Cleanup audio on component unmount
+    // 🚀 PRO FIX: ബ്രൗസർ loop ഇഗ്നോർ ചെയ്താലും ഓഡിയോ വീണ്ടും പ്ലേ ചെയ്യാനുള്ള ഫോൾബാക്ക് (For your 8-sec audio)
+    const playAudioAgain = (audioNode) => {
+      audioNode.currentTime = 0;
+      audioNode.play().catch(e => console.log("Loop play blocked by browser:", e));
+    };
+
+    const handleRingtoneEnd = () => playAudioAgain(ringtone);
+    const handleRingbackEnd = () => playAudioAgain(ringback);
+
+    ringtone.addEventListener('ended', handleRingtoneEnd);
+    ringback.addEventListener('ended', handleRingbackEnd);
+
+    // അസൈൻ ചെയ്യുന്നു
+    ringtoneRef.current = ringtone;
+    ringbackRef.current = ringback;
+    connectedRef.current = connected;
+
+    // Cleanup audio & event listeners on component unmount
     return () => {
-      if (ringtoneRef.current) {
-        ringtoneRef.current.pause();
-        ringtoneRef.current.currentTime = 0;
-      }
-      if (ringbackRef.current) {
-        ringbackRef.current.pause();
-        ringbackRef.current.currentTime = 0;
-      }
-      if (connectedRef.current) {
-        connectedRef.current.pause();
-        connectedRef.current.currentTime = 0;
-      }
+      ringtone.removeEventListener('ended', handleRingtoneEnd);
+      ringback.removeEventListener('ended', handleRingbackEnd);
+
+      ringtone.pause();
+      ringtone.currentTime = 0;
+      
+      ringback.pause();
+      ringback.currentTime = 0;
+      
+      connected.pause();
+      connected.currentTime = 0;
     };
   }, []);
 
