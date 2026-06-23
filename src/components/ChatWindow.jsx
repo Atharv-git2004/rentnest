@@ -432,10 +432,11 @@ const ChatWindow = ({
   }
 
   return (
-    <div className={`flex flex-col flex-1 h-full min-w-0 ${theme.panelBg} relative`} onClick={() => messageMenuOpen && setMessageMenuOpen(null)}>
+    <div className={`flex flex-col flex-1 h-full max-h-full min-w-0 overflow-hidden ${theme.panelBg} relative`} onClick={() => messageMenuOpen && setMessageMenuOpen(null)}>
+      {/* MAIN FIX: Added max-h-full and overflow-hidden to constrain height, ensuring proper scroll behavior */}
       
-      {/* 1. Fixed Header Layout: Removed absolute positioning to prevent disappearing or overlapping when scrolling */}
-      <div className={`flex items-center justify-between px-3 sm:px-4 py-2.5 ${theme.headerBg} z-10 shadow-sm flex-none`}> 
+      {/* 1. Fixed Header Layout: Added w-full and z-20. Due to outer overflow-hidden, it remains perfectly fixed */}
+      <div className={`flex items-center justify-between w-full px-3 sm:px-4 py-2.5 ${theme.headerBg} z-20 shadow-sm flex-none`}> 
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <button onClick={() => setActiveChat(null)} className={`md:hidden p-1 sm:-ml-2 shrink-0 ${theme.iconColor} ${theme.hover} rounded-full`}>
             <ArrowLeft size={24} />
@@ -462,7 +463,7 @@ const ChatWindow = ({
         </div>
       </div>
 
-      {/* 2. Fixed Message List Layout: Removed pt-20 since the header is no longer absolute */}
+      {/* 2. Scrollable Message List: flex-1 takes remaining height, overflow-y-auto enables internal scroll */}
       <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${theme.chatBg} space-y-3 relative scroll-smooth`} onClick={() => showEmojiPicker && setShowEmojiPicker(false)}>
         {currentMessages.map((msg, index) => {
           const isMyMessage = getUserId(msg.senderId || msg.sender) === currentUserId;
@@ -542,7 +543,7 @@ const ChatWindow = ({
       <input type="file" hidden ref={fileInputRef} onChange={handleFileSelect} accept="image/*,video/*,application/pdf" />
 
       {editingMessage && (
-         <div className={`px-4 py-2.5 flex items-center justify-between border-t ${theme.border} ${theme.headerBg} shadow-inner flex-none`}>
+         <div className={`px-4 py-2.5 flex items-center justify-between border-t ${theme.border} ${theme.headerBg} shadow-inner flex-none w-full z-10`}>
             <div className="flex flex-col flex-1 min-w-0 border-l-4 border-[#00a884] pl-2">
                <span className={`text-[13px] font-bold text-[#00a884]`}>Edit Message</span>
                <span className={`text-[14px] ${theme.textSecondary} truncate w-full`}>{editingMessage.text}</span>
@@ -551,7 +552,7 @@ const ChatWindow = ({
          </div>
       )}
 
-      <form onSubmit={handleSendMessage} className={`flex-none px-2 sm:px-4 py-3 ${theme.inputBar} flex items-center gap-2 sm:gap-3`}>
+      <form onSubmit={handleSendMessage} className={`flex-none w-full px-2 sm:px-4 py-3 ${theme.inputBar} flex items-center gap-2 sm:gap-3 z-10`}>
         {!isRecording && (
           <>
             {showEmojiPicker ? (
