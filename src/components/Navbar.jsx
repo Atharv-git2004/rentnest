@@ -1,22 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react'; // 🌟 Added useState for mobile toggle
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // 🌟 Added AnimatePresence for smooth mobile menu
+import toast from 'react-hot-toast'; // 🌟 Added Toast for consistent UX
 import { 
-  Building2, UserPlus, LogOut, User, 
+  Building2, UserPlus, LogOut, User, Menu, X, // 🌟 Added Menu and X icons
   Home as HomeIcon, MessageSquare, Compass, Gift, HelpCircle, ShieldCheck, LayoutDashboard 
 } from 'lucide-react';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isOpen, setIsOpen] = useState(false); // 🌟 Mobile menu state
 
   const userInfo = JSON.parse(localStorage.getItem('userInfo'));
 
   const handleLogout = () => {
     localStorage.removeItem('userInfo');
-    alert('Logged out successfully!');
+    toast.success('Logged out successfully!'); // 🌟 Replaced alert with toast
+    setIsOpen(false);
     navigate('/login');
   };
+
+  // Helper to check active link
+  const getLinkStyle = (path) => 
+    location.pathname === path 
+      ? 'text-green-600 bg-green-50' 
+      : 'hover:text-green-600 hover:bg-gray-50 md:hover:bg-transparent';
 
   return (
     <motion.nav 
@@ -28,7 +37,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         
         {/* LOGO SECTION */}
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center gap-2 group">
           <div className="bg-green-600 text-white p-2 rounded-xl shadow-md">
             <Building2 size={20} />
           </div>
@@ -37,27 +46,27 @@ const Navbar = () => {
           </span>
         </Link>
 
-        {/* ALL NAVIGATION FIELDS - 💡 ലാപ്ടോപ്പിൽ മാത്രം കാണിക്കും (hidden md:flex) */}
+        {/* DESKTOP NAVIGATION (hidden on mobile) */}
         <div className="hidden md:flex items-center gap-4 text-sm font-semibold text-gray-600">
-          <Link to="/" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${location.pathname === '/' ? 'text-green-600 bg-green-50' : 'hover:text-green-600'}`}>
+          <Link to="/" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/')}`}>
             <HomeIcon size={16} /> <span>Home</span>
           </Link>
 
-          <Link to="/explore" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${location.pathname === '/explore' ? 'text-green-600 bg-green-50' : 'hover:text-green-600'}`}>
+          <Link to="/explore" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/explore')}`}>
             <Compass size={16} /> <span>Explore</span>
           </Link>
 
-          <Link to="/offers" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${location.pathname === '/offers' ? 'text-green-600 bg-green-50' : 'hover:text-green-600'}`}>
+          <Link to="/offers" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/offers')}`}>
             <Gift size={16} /> <span>Offers</span>
           </Link>
 
-          <Link to="/how-it-works" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${location.pathname === '/how-it-works' ? 'text-green-600 bg-green-50' : 'hover:text-green-600'}`}>
+          <Link to="/how-it-works" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/how-it-works')}`}>
             <HelpCircle size={16} /> <span>How It Works</span>
           </Link>
 
           {userInfo && (
             <>
-              <Link to="/chats" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${location.pathname === '/chats' ? 'text-green-600 bg-green-50' : 'hover:text-green-600'}`}>
+              <Link to="/chats" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/chats')}`}>
                 <MessageSquare size={16} /> <span>Chats</span>
               </Link>
 
@@ -76,8 +85,8 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* AUTH BUTTONS SECTION */}
-        <div className="flex items-center gap-3 text-sm font-semibold">
+        {/* AUTH BUTTONS SECTION & MOBILE TOGGLE */}
+        <div className="flex items-center gap-2 md:gap-3 text-sm font-semibold">
           {userInfo ? (
             <div className="flex items-center gap-2 md:gap-3">
               {/* Profile Badge */}
@@ -105,15 +114,71 @@ const Navbar = () => {
                 Login
               </Link>
               <Link to="/register">
-                <button className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                <button className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer">
                   <UserPlus size={14} /> <span className="hidden sm:inline">Sign Up</span>
                 </button>
               </Link>
             </div>
           )}
-        </div>
 
+          {/* 🌟 Mobile Menu Toggle Button (Visible only on mobile) */}
+          <button 
+            onClick={() => setIsOpen(!isOpen)} 
+            className="p-1.5 text-slate-700 hover:bg-gray-100 rounded-xl md:hidden transition-colors cursor-pointer"
+          >
+            {isOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </div>
+
+      {/* 🌟 MOBILE DROPDOWN NAVIGATION */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden overflow-hidden bg-white border-t border-gray-100 mt-3 rounded-2xl flex flex-col gap-1 p-2 text-sm font-bold text-gray-600 shadow-inner"
+          >
+            <Link to="/" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/')}`}>
+              <HomeIcon size={16} /> <span>Home</span>
+            </Link>
+
+            <Link to="/explore" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/explore')}`}>
+              <Compass size={16} /> <span>Explore</span>
+            </Link>
+
+            <Link to="/offers" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/offers')}`}>
+              <Gift size={16} /> <span>Offers</span>
+            </Link>
+
+            <Link to="/how-it-works" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/how-it-works')}`}>
+              <HelpCircle size={16} /> <span>How It Works</span>
+            </Link>
+
+            {userInfo && (
+              <>
+                <Link to="/chats" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/chats')}`}>
+                  <MessageSquare size={16} /> <span>Chats</span>
+                </Link>
+
+                {userInfo.role === 'owner' && (
+                  <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2 p-3 rounded-xl text-blue-600 bg-blue-50/70">
+                    <LayoutDashboard size={16} /> <span>Owner Dashboard</span>
+                  </Link>
+                )}
+
+                {userInfo.role === 'admin' && (
+                  <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-2 p-3 rounded-xl text-purple-600 bg-purple-50/70">
+                    <ShieldCheck size={16} /> <span>Admin Panel</span>
+                  </Link>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 };

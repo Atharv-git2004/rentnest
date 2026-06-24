@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast'; // 🌟 Added Toast for better UX
 import { 
   Building2, MapPin, IndianRupee, Home, Info, 
   ArrowLeft, PlusCircle, X, Image as ImageIcon, Trash2, Plus, Sparkles, AlertCircle 
@@ -41,7 +42,7 @@ const AddProperty = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // അമെനിറ്റീസ് ചെックബോക്സ് മാറ്റാൻ
+  // അമെനിറ്റീസ് ചെക്ക്‌ബോക്സ് മാറ്റാൻ
   const handleAmenityChange = (amenity) => {
     setFormData((prev) => {
       const current = prev.amenities.includes(amenity)
@@ -75,6 +76,8 @@ const AddProperty = () => {
     setError('');
     setLoading(true); 
     
+    const loadingToast = toast.loading('Adding property listing...'); // 🌟 Loading Toast
+    
     // 💡 നമ്പർ വാല്യൂസ് കൃത്യമായി ടൈപ്പ് കാസ്റ്റ് ചെയ്യുന്നു
     const finalPropertyData = {
       ...formData,
@@ -94,20 +97,23 @@ const AddProperty = () => {
       const data = await res.json();
 
       if (res.ok) {
-        alert('Property with detailed room info added successfully! Waiting for Admin Approval.');
-        navigate('/dashboard'); 
+        toast.success('Property added successfully! Waiting for Admin Approval.', { id: loadingToast });
+        setTimeout(() => navigate('/dashboard'), 1500); // 🌟 Delay to show the toast before redirecting
       } else {
         // 💡 ബാക്ക്-എൻഡ് വാലിഡേഷൻ എററുകൾ (Mongoose errors) കൃത്യമായി വേർതിരിച്ചെടുക്കുന്നു
+        let errorMessage = 'Failed to add property listing';
         if (data.errors) {
-          const validationErrors = Object.values(data.errors).map(err => err.message).join(', ');
-          setError(validationErrors);
-        } else {
-          setError(data.message || data.error || 'Failed to add property listing');
+          errorMessage = Object.values(data.errors).map(err => err.message).join(', ');
+        } else if (data.message || data.error) {
+          errorMessage = data.message || data.error;
         }
+        setError(errorMessage);
+        toast.error('Validation failed. Please check the details.', { id: loadingToast });
       }
     } catch (err) {
       console.error('Error adding property:', err);
       setError('Server connection failed. Please try again.');
+      toast.error('Server connection failed.', { id: loadingToast });
     } finally {
       setLoading(false); 
     }
@@ -115,6 +121,7 @@ const AddProperty = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen selection:bg-green-500 selection:text-white">
+      <Toaster position="top-right" reverseOrder={false} /> {/* 🌟 Toaster Component added */}
       
       {/* HEADER SECTION */}
       <div className="flex items-center gap-4 mb-8">
@@ -166,7 +173,8 @@ const AddProperty = () => {
                   value={formData.houseImage} 
                   onChange={handleChange} 
                   required
-                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                  disabled={loading}
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                   placeholder="https://example.com/house-cover.jpg"
                 />
                 
@@ -190,7 +198,8 @@ const AddProperty = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Property Title</label>
                 <input
                   type="text" name="title" value={formData.title} onChange={handleChange} required
-                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                  disabled={loading}
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                   placeholder="e.g. Fully Furnished 3 BHK Luxury Apartment"
                 />
               </div>
@@ -200,7 +209,8 @@ const AddProperty = () => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Location / Address</label>
                   <input
                     type="text" name="location" value={formData.location} onChange={handleChange} required
-                    className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                    disabled={loading}
+                    className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                     placeholder="e.g. Kakkanad, Kochi"
                   />
                 </div>
@@ -211,7 +221,8 @@ const AddProperty = () => {
                     <span className="absolute left-4 top-3.5 text-gray-400 font-bold text-sm">₹</span>
                     <input
                       type="number" name="price" value={formData.price} onChange={handleChange} required
-                      className="w-full bg-slate-50 border border-gray-200 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                      disabled={loading}
+                      className="w-full bg-slate-50 border border-gray-200 rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                       placeholder="18000"
                     />
                   </div>
@@ -221,7 +232,8 @@ const AddProperty = () => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Property Type</label>
                   <select
                     name="type" value={formData.type} onChange={handleChange}
-                    className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                    disabled={loading}
+                    className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                   >
                     <option value="Apartment">Apartment</option>
                     <option value="Villa">Villa</option>
@@ -235,7 +247,8 @@ const AddProperty = () => {
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Beds</label>
                     <input
                       type="number" name="bedrooms" value={formData.bedrooms} onChange={handleChange} required
-                      className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                      disabled={loading}
+                      className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                       placeholder="3"
                     />
                   </div>
@@ -243,7 +256,8 @@ const AddProperty = () => {
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Baths</label>
                     <input
                       type="number" name="bathrooms" value={formData.bathrooms} onChange={handleChange} required
-                      className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800"
+                      disabled={loading}
+                      className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 disabled:opacity-50"
                       placeholder="2"
                     />
                   </div>
@@ -265,12 +279,13 @@ const AddProperty = () => {
                     formData.amenities.includes(amenity)
                       ? 'bg-green-50 border-green-200 text-green-700 font-bold'
                       : 'bg-slate-50 border-gray-100 text-slate-600 font-semibold'
-                  }`}
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <input
                     type="checkbox"
                     checked={formData.amenities.includes(amenity)}
                     onChange={() => handleAmenityChange(amenity)}
+                    disabled={loading}
                     className="hidden"
                   />
                   <div className={`w-4 h-4 rounded flex items-center justify-center border ${formData.amenities.includes(amenity) ? 'bg-green-600 border-green-600 text-white' : 'border-gray-300'}`}>
@@ -291,7 +306,8 @@ const AddProperty = () => {
               <button
                 type="button"
                 onClick={addRoomSection}
-                className="flex items-center gap-1 text-xs font-bold bg-green-50 text-green-700 px-3 py-1.5 rounded-xl hover:bg-green-100 transition-colors"
+                disabled={loading}
+                className="flex items-center gap-1 text-xs font-bold bg-green-50 text-green-700 px-3 py-1.5 rounded-xl hover:bg-green-100 transition-colors disabled:opacity-50"
               >
                 <Plus size={14} /> Add Room
               </button>
@@ -304,7 +320,8 @@ const AddProperty = () => {
                     <button
                       type="button"
                       onClick={() => removeRoomSection(index)}
-                      className="absolute right-3 top-3 p-1.5 bg-white text-red-500 rounded-xl shadow-sm hover:bg-red-50 transition-colors border border-gray-100"
+                      disabled={loading}
+                      className="absolute right-3 top-3 p-1.5 bg-white text-red-500 rounded-xl shadow-sm hover:bg-red-50 transition-colors border border-gray-100 disabled:opacity-50"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -317,7 +334,8 @@ const AddProperty = () => {
                       <select
                         value={room.roomType}
                         onChange={(e) => handleRoomFieldChange(index, 'roomType', e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-green-500"
+                        disabled={loading}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
                       >
                         <option value="Living Room">Living Room</option>
                         <option value="Master Bedroom">Master Bedroom</option>
@@ -337,7 +355,8 @@ const AddProperty = () => {
                         onChange={(e) => handleRoomFieldChange(index, 'imageUrl', e.target.value)}
                         placeholder="https://example.com/kitchen.jpg"
                         required
-                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-green-500"
+                        disabled={loading}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -364,9 +383,10 @@ const AddProperty = () => {
                       type="text"
                       value={room.description}
                       onChange={(e) => handleRoomFieldChange(index, 'description', e.target.value)}
-                      placeholder="e.g. Spacious with modular setup, chimney, and large windows for cross-ventilation."
+                      placeholder="e.g. Spacious with modular setup, chimney, and large windows."
                       required
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-500"
+                      disabled={loading}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -381,7 +401,8 @@ const AddProperty = () => {
             </h3>
             <textarea
               name="description" value={formData.description} onChange={handleChange} rows="4" required
-              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 resize-none"
+              disabled={loading}
+              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-semibold text-slate-800 resize-none disabled:opacity-50"
               placeholder="Tell us about the neighborhood, nearby landmarks (like Metro station, Infopark), rules etc..."
             ></textarea>
           </div>
@@ -391,7 +412,7 @@ const AddProperty = () => {
             <button
               type="button" 
               onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 px-6 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-1.5 px-6 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
               disabled={loading}
             >
               <X size={18} /> Cancel

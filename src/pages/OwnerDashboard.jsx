@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
   Building2, Plus, DollarSign, Users, 
-  Trash2, Edit3, Eye, TrendingUp, CheckCircle, Clock 
+  Trash2, Edit3, Eye, TrendingUp, CheckCircle, Clock, FolderPlus 
 } from 'lucide-react';
 
 import { apiRequest } from '../services/api';
@@ -29,6 +29,7 @@ const OwnerDashboard = () => {
     fetchOwnerProperties();
   }, []);
 
+  // Calculate statistics dynamically based on properties list
   const stats = useMemo(() => {
     const activeProperties = properties.filter(p => p.status?.toLowerCase() === 'approved');
     const pendingProperties = properties.filter(p => p.status?.toLowerCase() === 'pending');
@@ -69,19 +70,11 @@ const OwnerDashboard = () => {
     setProperties([
       {
         _id: 'p1',
-        title: 'Skyline Luxury Apartment',
-        location: 'Kakkanad, Kochi',
-        price: 25000,
+        title: 'Palm Grove Luxury Independent Villa',
+        location: 'Thondayad Bypass, near Cyberpark, Calicut',
+        price: 38000,
         status: 'approved',
-        houseImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=120&q=80'
-      },
-      {
-        _id: 'p2',
-        title: 'Green Valley Villa',
-        location: 'Edappally, Kochi',
-        price: 35000,
-        status: 'pending',
-        houseImage: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=120&q=80'
+        houseImage: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=120&q=80'
       }
     ]);
   };
@@ -183,22 +176,29 @@ const OwnerDashboard = () => {
               <h3 className="font-extrabold text-slate-800 text-lg">My Listed Properties</h3>
               {properties.length > 0 && (
                 <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                  {properties.length} Properties
+                  {properties.length} {properties.length === 1 ? 'Property' : 'Properties'}
                 </span>
               )}
             </div>
 
+            {/* 🌟 Empty State Component directly inside the layout */}
             {properties.length === 0 ? (
-              <div className="p-16 text-center flex flex-col items-center">
-                <Building2 size={48} className="text-gray-300 mb-4" />
-                <h4 className="text-lg font-bold text-slate-700">No properties found</h4>
-                <p className="text-gray-500 font-medium mt-1 mb-6">You haven't listed any properties yet.</p>
-                <button 
+              <div className="p-16 text-center flex flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50/30">
+                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                  <FolderPlus size={36} className="text-green-600" />
+                </div>
+                <h4 className="text-xl font-extrabold text-slate-800">No Properties Listed Yet</h4>
+                <p className="text-gray-500 font-medium mt-2 mb-8 max-w-sm">
+                  Your dashboard looks a bit empty! Let's add your first property listing to get started.
+                </p>
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => navigate('/add-property')}
-                  className="text-green-600 font-bold hover:text-green-700 underline underline-offset-4"
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-2xl font-bold transition-all shadow-lg shadow-green-100 text-sm flex items-center gap-2"
                 >
-                  List your first property
-                </button>
+                  <Plus size={16} /> Create First Listing
+                </motion.button>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -276,6 +276,7 @@ const OwnerDashboard = () => {
             )}
           </div>
 
+          {/* --- RIGHT SIDEBAR: RECENT ACTIVITY --- */}
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
               <h3 className="font-extrabold text-slate-800 text-lg mb-6 flex items-center gap-2">
@@ -303,7 +304,7 @@ const OwnerDashboard = () => {
                   <div className="absolute w-3 h-3 bg-blue-500 rounded-full -left-[5px] top-1 ring-4 ring-white" />
                   <div>
                     <p className="text-slate-800 font-bold">Listing Approved</p>
-                    <p className="text-xs text-gray-500 mt-1">Green Valley Villa is now live</p>
+                    <p className="text-xs text-gray-500 mt-1">Property is now live</p>
                     <span className="text-[10px] text-gray-400 block mt-1.5 uppercase tracking-wider">3 days ago</span>
                   </div>
                 </div>
