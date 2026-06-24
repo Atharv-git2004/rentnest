@@ -1,9 +1,8 @@
 /**
  * services/api.js
- * API Request Service - എല്ലാ ബാക്ക്-എൻഡ് കോളുകൾക്കും വേണ്ടി ഉപയോഗിക്കുന്ന കോമൺ ഫങ്ഷൻ
+ * Professional API Request Service with robust error handling and auto Content-Type management.
  */
 
-// 💡 നിങ്ങളുടെ ലൈവ് ബാക്കെൻഡ് URL
 const BASE_URL = import.meta.env?.VITE_API_URL || 'https://rentnest-backend-civ9.onrender.com/api';
 
 export const apiRequest = async (endpoint, options = {}) => {
@@ -13,46 +12,51 @@ export const apiRequest = async (endpoint, options = {}) => {
   
   const headers = { ...options.headers };
 
-  // 💡 ഫോം ഡാറ്റ (File/Audio/Image) ആണെങ്കിൽ Content-Type ബ്രൗസർ സ്വയം സെറ്റ് ചെയ്യണം.
-  // അല്ലാത്ത പക്ഷം ഡാറ്റ JSON ആയി മാറ്റുക.
-  if (options.body instanceof FormData) {
-    delete headers['Content-Type']; 
-  } else if (options.body && typeof options.body === 'object') {
-    options.body = JSON.stringify(options.body);
-    headers['Content-Type'] = 'application/json';
-  }
-
-  // ലോക്കൽ സ്റ്റോറേജിൽ നിന്ന് യൂസർ ടോക്കൺ എടുത്ത് ഹെഡ്ഡറിൽ ചേർക്കുന്നു
-  const userInfo = localStorage.getItem('userInfo');
-  if (userInfo) {
-    try {
-      const parsedUser = JSON.parse(userInfo);
-      if (parsedUser && parsedUser.token) {
-        headers['Authorization'] = `Bearer ${parsedUser.token}`;
+  // 💡 Auto-manage Body and Content-Type
+  if (options.body) {
+    if (options.body instanceof FormData) {
+      // ബ്രൗസർ സ്വയം ബൗണ്ടറി സഹിതം Content-Type സെറ്റ് ചെയ്തോളും
+      delete headers['Content-Type']; 
+    } else {
+      // ഒബ്ജക്റ്റ് ആണെങ്കിൽ JSON ആക്കി മാറ്റുക
+      if (typeof options.body === 'object') {
+        options.body = JSON.stringify(options.body);
       }
-    } catch (e) {
-      console.error("Error parsing user info from localStorage:", e);
+      // JSON Content-Type ഉറപ്പാക്കുക
+      if (!headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
     }
   }
 
-  // ഡീബഗ്ഗിങ്ങിന് വേണ്ടി മാത്രം (നെറ്റ്‌വർക്ക് ടാബിൽ നോക്കാൻ എളുപ്പത്തിന്)
-  console.log(`🚀 API Request: ${options.method || 'GET'} ${url}`);
+  // ലോക്കൽ സ്റ്റോറേജിൽ നിന്ന് ടോക്കൺ എടുക്കുന്നു
+  try {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      const parsedUser = JSON.parse(userInfo);
+      if (parsedUser?.token) {
+        headers['Authorization'] = `Bearer ${parsedUser.token}`;
+      }
+    }
+  } catch (e) {
+    console.warn("⚠️ Error reading token from localStorage:", e);
+  }
+
+  console.log(`🚀 API Request: [${options.method || 'GET'}] ${url}`);
 
   try {
-    const response = await fetch(url, {
+    return await fetch(url, {
       ...options,
       headers,
     });
-
-    return response;
-
   } catch (error) {
     console.error(`❌ API Request Error on ${endpoint}:`, error);
     
-    // നെറ്റ്‌വർക്ക് എറർ ഉണ്ടായാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ 
+    // നെറ്റ്‌വർക്ക് ഫെയിൽ ആയാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ സേഫ് ഒബ്ജക്റ്റ് നൽകുന്നു
     return {
       ok: false,
-      status: 500,
+      status: 503,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: async () => ({ 
         success: false,
         message: "Network connection failed. Server might be down or unreachable.", 

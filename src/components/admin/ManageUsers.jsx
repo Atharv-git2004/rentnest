@@ -1,89 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Trash2, Shield, Search, Mail, User, ShieldAlert, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
-import { apiRequest } from '../../services/api'; // നിങ്ങളുടെ API റിക്വസ്റ്റ് സർവീസ്
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Users, Trash2, Search, Mail, User, AlertCircle, 
+  CheckCircle, XCircle, RefreshCw 
+} from 'lucide-react';
+import { apiRequest } from '../../services/api'; 
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(null); // ഏത് യൂസറിലാണ് ആക്ഷൻ നടക്കുന്നത് എന്ന് ട്രാക്ക് ചെയ്യാൻ
 
-  // 1. എല്ലാ യൂസർമാരുടെയും വിവരങ്ങൾ ബാക്ക്-എൻഡിൽ നിന്ന് ഫെച്ച് ചെയ്യുന്നു
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  // 💡 Safe API Response Parser (To prevent unexpected token '<' crash)
+  const parseResponse = async (res) => {
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await res.json();
+    }
+    await res.text(); // കൺസ്യൂം ചെയ്ത് കളയാൻ
+    return { 
+      message: res.status === 404 
+        ? "API Endpoint not found (404). Please verify your backend API routes." 
+        : `Server returned an error (${res.status}).`
+    };
+  };
 
-  const fetchUsers = async () => {
+  // 1. ഫെച്ച് ലോജിക്
+  const fetchUsers = useCallback(async () => {
+    setError('');
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await apiRequest('/users'); // നിങ്ങളുടെ യഥാർത്ഥ അഡ്മിൻ യൂസർ API എൻഡ്‌പോയിന്റ് നൽകുക
-      const data = await res.json();
+      const res = await apiRequest('/users'); // 💡 ബാക്കെൻഡിലെ റൂട്ട് '/admin/users' എന്നാണെങ്കിൽ ഇവിടെയും മാറ്റണം
+      const data = await parseResponse(res);
 
       if (res.ok) {
-        setUsers(data);
+        setUsers(Array.isArray(data) ? data : data.users || []);
       } else {
-        setError(data.message || 'Failed to fetch users');
+        setError(data.message || 'Failed to fetch users list.');
       }
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError('Server connection failed. Please try again.');
+      setError('Server connection failed. Please check your backend.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // 2. യൂസറുടെ സ്റ്റാറ്റസ് മാറ്റുന്നു (Active / Blocked toggle)
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // 2. സ്റ്റാറ്റസ് മാറ്റുന്നു (Active / Blocked)
   const handleToggleBlock = async (id, currentStatus) => {
     const newStatus = currentStatus === 'Active' ? 'Blocked' : 'Active';
+    setActionLoading(id);
+    setError('');
+
     try {
+      // 💡 api.js സ്വയം stringify ചെയ്തോളും, ഒബ്ജക്റ്റ് നേരിട്ട് നൽകാം
       const res = await apiRequest(`/users/${id}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status: newStatus }),
+        body: { status: newStatus }, 
       });
 
+      const data = await parseResponse(res);
+
       if (res.ok) {
-        setUsers(
-          users.map((user) =>
+        setUsers((prev) =>
+          prev.map((user) =>
             user._id === id ? { ...user, status: newStatus } : user
           )
         );
       } else {
-        alert('Failed to update user status');
+        setError(data.message || 'Failed to update user status.');
       }
     } catch (err) {
       console.error('Error updating user status:', err);
-      alert('Something went wrong');
+      setError('Something went wrong while updating status.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  // 3. യൂസറെ സിസ്റ്റത്തിൽ നിന്ന് സ്ഥിരമായി ഡിലീറ്റ് ചെയ്യാനുള്ള ഫങ്ഷൻ
-  const handleDeleteUser = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) return;
+  // 3. ഡിലീറ്റ് ഫങ്ഷൻ
+  const handleDeleteUser = async (id, userName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${userName}"?`)) return;
+
+    setActionLoading(id);
+    setError('');
 
     try {
       const res = await apiRequest(`/users/${id}`, {
         method: 'DELETE',
       });
 
+      const data = await parseResponse(res);
+
       if (res.ok) {
-        setUsers(users.filter((user) => user._id !== id));
+        setUsers((prev) => prev.filter((user) => user._id !== id));
       } else {
-        alert('Failed to delete user');
+        setError(data.message || 'Failed to delete user.');
       }
     } catch (err) {
       console.error('Error deleting user:', err);
-      alert('Something went wrong');
+      setError('Something went wrong while deleting user.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  // 4. സേർച്ച് ഫിൽട്ടർ ലോജിക് (Name, Email അല്ലെങ്കിൽ Role വെച്ച് സേർച്ച് ചെയ്യാം)
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 4. ഫിൽട്ടർ ലോജിക്
+  const filteredUsers = users.filter((user) => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    return (
+      user.name?.toLowerCase().includes(term) ||
+      user.email?.toLowerCase().includes(term) ||
+      user.role?.toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="p-6 max-w-7xl mx-auto min-h-screen">
@@ -100,35 +137,62 @@ const ManageUsers = () => {
           </p>
         </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-3 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search by name, email, or role..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all shadow-sm"
-          />
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {/* Refresh Button */}
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="p-2.5 bg-white border border-gray-200 text-gray-600 hover:text-green-600 hover:border-green-300 rounded-xl shadow-sm transition-all flex items-center justify-center disabled:opacity-50"
+            title="Refresh List"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin text-green-600" : ""} />
+          </button>
+
+          {/* Search Input */}
+          <div className="relative flex-1 md:w-72">
+            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search by name, email, or role..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all shadow-sm"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <div className="mb-6 flex items-center gap-2 bg-red-50 text-red-600 p-4 rounded-xl text-sm font-semibold border border-red-100">
-          <AlertCircle size={18} /> {error}
-        </div>
-      )}
+      {/* Error Banner */}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mb-6 flex items-center justify-between bg-red-50 text-red-700 p-4 rounded-xl text-sm font-semibold border border-red-200 shadow-sm"
+          >
+            <div className="flex items-center gap-2.5">
+              <AlertCircle size={18} className="text-red-600 flex-shrink-0" /> 
+              <span>{error}</span>
+            </div>
+            <button 
+              onClick={fetchUsers}
+              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+            >
+              Retry
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content Table */}
       {loading ? (
-        <div className="flex justify-center items-center h-64">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-gray-500 font-medium">Fetching users data...</p>
         </div>
       ) : (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
         >
           <div className="overflow-x-auto">
@@ -143,70 +207,85 @@ const ManageUsers = () => {
               </thead>
               <tbody className="divide-y divide-gray-50 text-sm">
                 {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <tr key={user._id} className="hover:bg-slate-50/50 transition-colors">
-                      
-                      {/* User Avatar, Name, Email */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-100 text-slate-600 font-bold rounded-xl flex items-center justify-center border border-slate-200 uppercase">
-                            {user.name ? user.name.charAt(0) : <User size={18} />}
+                  filteredUsers.map((user) => {
+                    const isProcessing = actionLoading === user._id;
+                    const isActive = user.status === 'Active' || !user.status;
+
+                    return (
+                      <tr 
+                        key={user._id} 
+                        className={`hover:bg-slate-50/70 transition-colors ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
+                      >
+                        {/* User details */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-slate-100 text-slate-700 font-bold rounded-xl flex items-center justify-center border border-slate-200 uppercase flex-shrink-0">
+                              {user.name ? user.name.charAt(0) : <User size={18} />}
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-bold text-slate-800 text-base">
+                                {user.name || 'Unavailable'}
+                              </span>
+                              <span className="text-xs text-gray-500 flex items-center gap-1 font-medium">
+                                <Mail size={12} /> {user.email || 'N/A'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-bold text-slate-800 text-base">{user.name}</span>
-                            <span className="text-xs text-gray-500 flex items-center gap-1 font-medium">
-                              <Mail size={12} /> {user.email}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* User Role Badge */}
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                          user.role === 'admin' 
-                            ? 'bg-purple-100 text-purple-700' 
-                            : user.role === 'owner' 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {user.role}
-                        </span>
-                      </td>
+                        {/* Role */}
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                            user.role === 'admin' 
+                              ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                              : user.role === 'owner' 
+                              ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                              : 'bg-green-100 text-green-700 border border-green-200'
+                          }`}>
+                            {user.role || 'User'}
+                          </span>
+                        </td>
 
-                      {/* Status Toggle Button */}
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleToggleBlock(user._id, user.status)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                            user.status === 'Active' || !user.status
-                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                              : 'bg-red-100 text-red-700 hover:bg-red-200'
-                          }`}
-                          title="Click to toggle status"
-                        >
-                          {user.status === 'Active' || !user.status ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                          {user.status || 'Active'}
-                        </button>
-                      </td>
+                        {/* Status Button */}
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleToggleBlock(user._id, user.status || 'Active')}
+                            disabled={user.role === 'admin'}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                              user.role === 'admin'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : isActive
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
+                            }`}
+                          >
+                            {isActive ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                            {isActive ? 'Active' : 'Blocked'}
+                          </button>
+                        </td>
 
-                      {/* Action Buttons */}
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => handleDeleteUser(user._id)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                          title="Delete User"
-                          disabled={user.role === 'admin'} // അഡ്മിനെ അബദ്ധത്തിൽ ഡിലീറ്റ് ചെയ്യാതിരിക്കാൻ
-                        >
-                          <Trash2 size={18} className={user.role === 'admin' ? "opacity-30 cursor-not-allowed" : ""} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        {/* Actions */}
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => handleDeleteUser(user._id, user.name || 'User')}
+                            disabled={user.role === 'admin'}
+                            className={`p-2 rounded-xl transition-all ${
+                              user.role === 'admin' 
+                                ? 'text-gray-300 cursor-not-allowed' 
+                                : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                            }`}
+                            title="Delete User"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan="4" className="px-6 py-12 text-center text-gray-500 font-medium">
-                      No users found matching your search.
+                      {searchTerm ? "No users found matching your search." : "No registered users found."}
                     </td>
                   </tr>
                 )}
