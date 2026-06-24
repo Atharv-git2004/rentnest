@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, SlidersHorizontal, MapPin, DollarSign, BedDouble, Building, X } from 'lucide-react';
+import { Search, SlidersHorizontal, MapPin, DollarSign, Building, X } from 'lucide-react';
 import PropertyCard from '../components/PropertyCard';
 import Footer from '../components/Footer';
 import { apiRequest } from '../services/api';
@@ -42,13 +42,13 @@ const ExploreProperties = () => {
 
     if (searchQuery) {
       result = result.filter(p => 
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        p.location.toLowerCase().includes(searchQuery.toLowerCase())
+        p.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.location?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (selectedLocation) {
-      result = result.filter(p => p.location.toLowerCase().includes(selectedLocation.toLowerCase()));
+      result = result.filter(p => p.location?.toLowerCase().includes(selectedLocation.toLowerCase()));
     }
 
     if (selectedType !== 'All') {
@@ -116,18 +116,19 @@ const ExploreProperties = () => {
           >
             <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 sm:grid-cols-3 gap-6 items-end text-sm font-semibold text-slate-700">
               
-              {/* Filter 1: Property Type */}
+              {/* Filter 1: Property Type (Updated from image_6ea848.png) */}
               <div className="space-y-2">
                 <label className="flex items-center gap-1.5 text-gray-500 font-bold uppercase tracking-wider text-xs"><Building size={14}/> Property Type</label>
                 <select 
                   value={selectedType} 
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-slate-800"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-slate-800 cursor-pointer transition-all"
                 >
                   <option value="All">All Types</option>
                   <option value="Apartment">Apartment</option>
                   <option value="Villa">Villa</option>
-                  <option value="House">House</option>
+                  <option value="Independent House">Independent House</option>
+                  <option value="Studio">Studio</option>
                 </select>
               </div>
 
@@ -136,7 +137,7 @@ const ExploreProperties = () => {
                 <label className="flex items-center gap-1.5 text-gray-500 font-bold uppercase tracking-wider text-xs"><MapPin size={14}/> Location / City</label>
                 <input 
                   type="text" 
-                  placeholder="e.g. Kochi, Calicut"
+                  placeholder="e.g. Kakkanad, Kochi"
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-slate-800"
