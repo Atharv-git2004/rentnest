@@ -27,12 +27,12 @@ const ManageUsers = () => {
     };
   };
 
-  // 1. ഫെച്ച് ലോജിക്
+  // 1. ഫെച്ച് ലോജിക് - റൂട്ട് '/admin/users' എന്നാക്കി മാറ്റി
   const fetchUsers = useCallback(async () => {
     setError('');
     setLoading(true);
     try {
-      const res = await apiRequest('/users'); // 💡 ബാക്കെൻഡിലെ റൂട്ട് '/admin/users' എന്നാണെങ്കിൽ ഇവിടെയും മാറ്റണം
+      const res = await apiRequest('/admin/users'); // 💡 മാറ്റം ഇവിടെയാണ്
       const data = await parseResponse(res);
 
       if (res.ok) {
@@ -59,8 +59,8 @@ const ManageUsers = () => {
     setError('');
 
     try {
-      // 💡 api.js സ്വയം stringify ചെയ്തോളും, ഒബ്ജക്റ്റ് നേരിട്ട് നൽകാം
-      const res = await apiRequest(`/users/${id}/status`, {
+      // 💡 അഡ്മിൻ റൂട്ട് ആയതിനാൽ /admin/users/${id}/status എന്ന് മാറ്റി
+      const res = await apiRequest(`/admin/users/${id}/status`, {
         method: 'PUT',
         body: { status: newStatus }, 
       });
@@ -92,7 +92,8 @@ const ManageUsers = () => {
     setError('');
 
     try {
-      const res = await apiRequest(`/users/${id}`, {
+      // 💡 അഡ്മിൻ റൂട്ട് ആയതിനാൽ /admin/users/${id} എന്ന് മാറ്റി
+      const res = await apiRequest(`/admin/users/${id}`, {
         method: 'DELETE',
       });
 

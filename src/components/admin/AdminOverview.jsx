@@ -22,11 +22,18 @@ const AdminOverview = () => {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      const res = await apiRequest('/admin/stats'); // നിങ്ങളുടെ Backend അഡ്മിൻ സ്റ്റാറ്റ്സ് എൻഡ്‌പോയിന്റ് നൽകുക
+      // ഫിക്സ് 1: API റൂട്ട് '/admin/dashboard-stats' എന്നാക്കി മാറ്റി
+      const res = await apiRequest('/admin/dashboard-stats'); 
       const data = await res.json();
 
       if (res.ok) {
-        setStats(data);
+        // ഫിക്സ് 2: ഡാറ്റ കൃത്യമായി മാപ്പ് ചെയ്തു 
+        setStats({
+          totalUsers: data.totalUsers || 0,
+          totalProperties: data.totalProperties || 0,
+          pendingInquiries: data.pendingProperties || 0, // ഇവിടെ pendingProperties എന്ന് കൊടുത്തു
+          approvedProperties: data.approvedProperties || 0,
+        });
       } else {
         setError(data.message || 'Failed to load stats');
       }
