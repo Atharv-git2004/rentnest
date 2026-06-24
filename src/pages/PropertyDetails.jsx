@@ -32,7 +32,9 @@ const PropertyDetails = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   
-  const [selectedImage, setSelectedImage] = useState('');
+  // 🚀 PRO FIX: വെറും image url-ന് പകരം ഏത് റൂം ആണെന്ന് കൃത്യമായി അറിയാൻ Index State വെച്ചു!
+  const [selectedRoomIndex, setSelectedRoomIndex] = useState(0);
+
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -51,8 +53,6 @@ const PropertyDetails = () => {
   }, [isCalling]);
 
   const ownerId = property?.owner?._id || property?.ownerId || property?.owner;
-
-  // 💡 FIX: ഇൻകമിംഗ് കോൾ ആണെങ്കിൽ വിളിച്ച ആളുടെ ഐഡിയും, ഔട്ട്ഗോയിംഗ് ആണെങ്കിൽ ഓണറുടെ ഐഡിയും കൃത്യമായി എടുക്കുന്നു
   const callTargetId = incomingCallData ? (incomingCallData.from?._id || incomingCallData.from) : ownerId;
 
   // Fetch Property Details
@@ -67,9 +67,7 @@ const PropertyDetails = () => {
         if (res.ok) {
           const actualData = resData.data || resData;
           setProperty(actualData);
-          
-          const mainImg = actualData.houseImage || actualData.image || actualData.rooms?.[0]?.imageUrl;
-          setSelectedImage(getImageUrl(mainImg));
+          setSelectedRoomIndex(0); // പേജ് ലോഡ് ആകുമ്പോൾ എപ്പോഴും ആദ്യത്തെ റൂം കാണിക്കും
         } else {
           setFetchError(true);
         }
@@ -109,7 +107,7 @@ const PropertyDetails = () => {
     fetchChatHistory();
   }, [isChatOpen, ownerId, currentUserId]);
 
-  // Socket Listener Optimization
+  // Socket Listeners
   useEffect(() => {
     if (!socket || !ownerId) return;
 
@@ -164,9 +162,7 @@ const PropertyDetails = () => {
 
       if (res.ok && resData.success) {
         const savedMessage = resData.data;
-        if (socket) {
-          socket.emit('send-message', savedMessage);
-        }
+        if (socket) socket.emit('send-message', savedMessage);
         setMessages((prev) => [...prev, savedMessage]);
         setNewMessage('');
       }
@@ -185,7 +181,7 @@ const PropertyDetails = () => {
     setIsCalling(true);
   };
 
-  // End Call & Sync Log
+  // End Call
   const handleEndCall = async (duration) => {
     setIsCalling(false);
     setIncomingCallData(null);
@@ -230,21 +226,34 @@ const PropertyDetails = () => {
     );
   }
 
+  // 🚀 റൂം ലിസ്റ്റ് ജനറേറ്റ് ചെയ്യുമ്പോൾ description കൂടി ഒപ്പം എടുക്കുന്നു
   const getRoomList = () => {
     let list = [];
-    if (property.houseImage) list.push({ roomType: 'Main View', imageUrl: property.houseImage });
-    else if (property.image) list.push({ roomType: 'Main View', imageUrl: property.image });
-    if (property.rooms && property.rooms.length > 0) list = [...list, ...property.rooms];
+    if (property.houseImage || property.image) {
+      list.push({ 
+        roomType: 'Main View', 
+        imageUrl: property.houseImage || property.image,
+        description: property.description || 'Main structural overview of the verified property.'
+      });
+    }
+    if (property.rooms && property.rooms.length > 0) {
+      list = [...list, ...property.rooms];
+    }
     return list;
   };
 
   const roomList = getRoomList();
+  
+  // നിലവിൽ സെലക്ട് ചെയ്തിരിക്കുന്ന റൂം ഒബ്ജക്റ്റ്
+  const activeRoom = roomList[selectedRoomIndex] || roomList[0] || {};
+  const activeImageUrl = getImageUrl(activeRoom.imageUrl);
+  
   const ownerData = property.owner || {};
 
   return (
     <div className="min-h-screen bg-white pb-16 font-sans text-slate-900 antialiased selection:bg-slate-900 selection:text-white">
       
-      {/* 💡 VIDEO/AUDIO CALL COMPONENT */}
+      {/* VIDEO/AUDIO CALL COMPONENT */}
       {isCalling && (
         <VideoCall 
           socket={socket}
@@ -267,19 +276,15 @@ const PropertyDetails = () => {
             <p className="text-slate-500 mb-6">User is calling you...</p>
             <div className="flex gap-4 justify-center">
               <button 
-                onClick={() => {
-                  setCallType(incomingCallData.callType);
-                  setIsCalling(true);
-                }} 
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors">
+                onClick={() => { setCallType(incomingCallData.callType); setIsCalling(true); }} 
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors"
+              >
                 Accept
               </button>
               <button 
-                onClick={() => {
-                  setIncomingCallData(null);
-                  if (socket) socket.emit('end-call', { to: callTargetId });
-                }} 
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors">
+                onClick={() => { setIncomingCallData(null); if (socket) socket.emit('end-call', { to: callTargetId }); }} 
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors"
+              >
                 Decline
               </button>
             </div>
@@ -297,27 +302,64 @@ const PropertyDetails = () => {
         </span>
       </div>
 
-      {/* IMAGE GALLERY */}
+      {/* --- REPAIRED IMAGE GALLERY & SPECIAL DESCRIPTION SECTION --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 relative bg-slate-100 rounded-2xl overflow-hidden h-[260px] md:h-[460px] group border border-slate-200">
-            {selectedImage ? (
-              <img 
-                src={selectedImage} alt="Property Core" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.01]"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' font-weight='bold' text-anchor='middle' dy='.3em'%3EImage Not Found on Server%3C/text%3E%3C/svg%3E";
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-sm bg-slate-50">No Image Uploaded</div>
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          
+          {/* LEFT SIDE: MAIN IMAGE + SPECIAL DESCRIPTION CARD */}
+          <div className="lg:col-span-2 flex flex-col gap-3">
+            
+            <div className="relative bg-slate-100 rounded-2xl overflow-hidden h-[260px] md:h-[460px] flex-shrink-0 group border border-slate-200 shadow-xs">
+              {activeImageUrl ? (
+                <img 
+                  src={activeImageUrl} alt={activeRoom.roomType || "Property Core"} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.01]"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' fill='%2394a3b8' font-family='sans-serif' font-size='14' font-weight='bold' text-anchor='middle' dy='.3em'%3EImage Not Found on Server%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-sm bg-slate-50">No Image Uploaded</div>
+              )}
+            </div>
+
+            {/* ✨ THE ROOM SPECIAL DESCRIPTION CARD */}
+            <AnimatePresence mode="wait">
+              {activeRoom.description && (
+                <motion.div 
+                  key={selectedRoomIndex}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-slate-950 text-white p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-md flex flex-col justify-center"
+                >
+                  <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-black uppercase tracking-wider mb-1.5">
+                    <Sparkles size={14} className="animate-pulse" /> What makes the {activeRoom.roomType || 'room'} special:
+                  </div>
+                  <p className="text-slate-200 text-xs sm:text-sm leading-relaxed font-medium">
+                    {activeRoom.description}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           </div>
+
+          {/* RIGHT SIDE: THUMBNAILS GRID */}
           <div className="flex lg:grid lg:grid-cols-2 gap-3 overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto h-auto lg:h-[460px] content-start pb-2 lg:pb-0 pr-1 snap-x">
             {roomList.map((room, idx) => {
               const currentImgUrl = getImageUrl(room.imageUrl);
+              const isSelected = selectedRoomIndex === idx;
+
               return (
-                <div key={idx} onClick={() => setSelectedImage(currentImgUrl)} className={`relative h-20 w-28 sm:w-36 lg:w-full flex-shrink-0 snap-start rounded-xl overflow-hidden cursor-pointer border-2 transition-all bg-slate-100 ${selectedImage === currentImgUrl ? 'border-slate-900 scale-95 shadow-sm' : 'border-transparent opacity-70 hover:opacity-100'}`}>
+                <div 
+                  key={idx} 
+                  onClick={() => setSelectedRoomIndex(idx)} 
+                  className={`relative h-20 w-28 sm:w-36 lg:w-full flex-shrink-0 snap-start rounded-xl overflow-hidden cursor-pointer border-2 transition-all bg-slate-100 ${
+                    isSelected ? 'border-slate-900 scale-95 shadow-sm ring-2 ring-slate-900/50' : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                >
                   <img src={currentImgUrl} alt={room.roomType || 'Room'} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                   <div className="absolute inset-0 bg-black/20 flex items-end p-1.5">
                     <span className="text-[10px] font-bold text-white bg-black/40 px-1.5 py-0.5 rounded-md line-clamp-1">{room.roomType || `Image ${idx + 1}`}</span>
@@ -326,6 +368,7 @@ const PropertyDetails = () => {
               );
             })}
           </div>
+
         </div>
       </div>
 
@@ -404,21 +447,8 @@ const PropertyDetails = () => {
       <AnimatePresence>
         {isChatOpen && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setIsChatOpen(false)} 
-              className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-xs" 
-            />
-            
-            <motion.div 
-              initial={{ x: '100%' }} 
-              animate={{ x: 0 }} 
-              exit={{ x: '100%' }} 
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
-              className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white z-[100] shadow-2xl flex flex-col border-l border-slate-100"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsChatOpen(false)} className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-xs" />
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white z-[100] shadow-2xl flex flex-col border-l border-slate-100">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-950 text-white">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-xs border border-slate-700">
@@ -426,31 +456,18 @@ const PropertyDetails = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-black">{property.ownerName || ownerData.name || 'Owner'}</h4>
-                    <p className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Online
-                    </p>
+                    <p className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Online</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => handleStartCall('audio')} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white">
-                    <Phone size={16} />
-                  </button>
-                  <button onClick={() => handleStartCall('video')} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white">
-                    <Video size={16} />
-                  </button>
-                  <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white ml-2">
-                    <X size={18} />
-                  </button>
+                  <button onClick={() => handleStartCall('audio')} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white"><Phone size={16} /></button>
+                  <button onClick={() => handleStartCall('video')} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white"><Video size={16} /></button>
+                  <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-300 hover:text-white ml-2"><X size={18} /></button>
                 </div>
               </div>
 
               <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
-                <div className="text-center">
-                  <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-100 line-clamp-1">
-                    Inquiry regarding: {property.title}
-                  </span>
-                </div>
-
+                <div className="text-center"><span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-100 line-clamp-1">Inquiry regarding: {property.title}</span></div>
                 {messages.map((msg, index) => {
                   const msgSenderId = msg.senderId?._id || msg.senderId;
                   const isMyMessage = msg.sender === 'user' || (msgSenderId && msgSenderId.toString() === currentUserId?.toString());
@@ -463,9 +480,7 @@ const PropertyDetails = () => {
                             {msg.callDetails?.callType === 'video' ? <Video size={14} /> : <Phone size={14} />}
                             <span>{msg.callDetails?.callType} Call ended ({msg.callDetails?.duration || 0}s)</span>
                           </div>
-                        ) : (
-                          <p>{msg.text}</p>
-                        )}
+                        ) : (<p>{msg.text}</p>)}
                       </div>
                     </div>
                   );
@@ -474,15 +489,9 @@ const PropertyDetails = () => {
               </div>
 
               <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-100 bg-white flex items-center gap-2">
-                <input
-                  type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your message..."
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-400 transition-colors"
-                />
-                <button type="submit" className="p-2.5 bg-slate-950 text-white rounded-xl hover:bg-slate-900 transition-colors flex items-center justify-center shadow-xs">
-                  <Send size={14} />
-                </button>
+                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type your message..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-400 transition-colors" />
+                <button type="submit" className="p-2.5 bg-slate-950 text-white rounded-xl hover:bg-slate-900 transition-colors flex items-center justify-center shadow-xs"><Send size={14} /></button>
               </form>
-
             </motion.div>
           </>
         )}
