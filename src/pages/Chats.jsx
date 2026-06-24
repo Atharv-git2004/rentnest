@@ -1,3 +1,5 @@
+// Chats.jsx
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,13 +10,14 @@ import {
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
-import VideoCall from '../components/VideoCall';
 import ChatWindow from '../components/ChatWindow'; 
+import { useCall } from '../App'; // 🚀 PRO FIX: App.jsx-ൽ നിന്നും Global Call Hook ഇമ്പോർട്ട് ചെയ്തു!
 
 const Chats = () => {
   const navigate = useNavigate();
   const socket = useSocket();
   const { user } = useAuth(); 
+  const { initiateCall } = useCall(); // 🚀 PRO FIX: Global Hook വിളിച്ച് initiateCall ഫംഗ്ഷൻ എടുക്കുന്നു
 
   const getUserId = useCallback((userObj) => {
     if (!userObj) return '';
@@ -37,14 +40,7 @@ const Chats = () => {
     activeChatIdRef.current = activeChatId; 
   }, [activeChatId]);
 
-  const [callData, setCallData] = useState({
-    isActive: false, 
-    signal: null, 
-    partnerId: null, 
-    callType: 'video', 
-    startTime: null,
-    isCaller: false 
-  });
+  // 🗑️ CLEANUP: ഇവിടെ കിടന്നിരുന്ന ലോക്കൽ 'callData' സ്റ്റേറ്റ് പൂർണ്ണമായി ഒഴിവാക്കി!
 
   const theme = useMemo(() => {
     return isDarkMode ? {
@@ -191,21 +187,6 @@ const Chats = () => {
       }));
     };
 
-    const handleCallEnded = () => {
-      setCallData({ isActive: false, signal: null, partnerId: null, callType: 'video', startTime: null, isCaller: false });
-    };
-
-    const handleIncomingCall = (data) => {
-      setCallData({
-        isActive: true,
-        signal: data.signal || data.signalData,
-        partnerId: data.from,
-        callType: data.callType || 'video',
-        startTime: null,
-        isCaller: false 
-      });
-    };
-
     const handleMessageEdited = (updatedMessage) => {
       const msgSenderId = getUserId(updatedMessage.senderId || updatedMessage.sender);
       const chatPartnerId = msgSenderId === currentUserId 
@@ -241,18 +222,16 @@ const Chats = () => {
       });
     };
 
+    // 🗑️ CLEANUP: ഇവിടെ കിടന്നിരുന്ന ലോക്കൽ call-ended, incoming-call ലിസണറുകൾ വെട്ടിമാറ്റി!
+
     socket.on('receive-message', handleReceiveMessage);
     socket.on('messages-read', handleMessagesRead);
-    socket.on('call-ended', handleCallEnded);
-    socket.on('incoming-call', handleIncomingCall);
     socket.on('receive-edit', handleMessageEdited);       
     socket.on('receive-delete', handleMessageDeleted);   
 
     return () => {
       socket.off('receive-message', handleReceiveMessage);
       socket.off('messages-read', handleMessagesRead);
-      socket.off('call-ended', handleCallEnded);
-      socket.off('incoming-call', handleIncomingCall);
       socket.off('receive-edit', handleMessageEdited);     
       socket.off('receive-delete', handleMessageDeleted); 
     };
@@ -265,28 +244,14 @@ const Chats = () => {
     if (socket && currentUserId) socket.emit('mark-messages-read', { senderId: contactId, receiverId: currentUserId });
   }, [socket, currentUserId, getUserId]);
 
+  // 🚀 PRO FIX: ഇനി കോൾ വിളിക്കുന്നത് App.jsx-ലെ 'initiateCall' വഴിയാണ്!
   const handleStartCall = useCallback((type = 'video') => {
-    if (!socket || !activeChatId) return;
-    setCallData({ 
-      isActive: true, 
-      signal: null, 
-      partnerId: activeChatId, 
-      callType: type, 
-      startTime: new Date(),
-      isCaller: true 
-    });
-  }, [socket, activeChatId]);
+    if (!activeChat || !initiateCall) return;
+    const partnerId = getUserId(activeChat);
+    initiateCall(partnerId, activeChat.name, activeChat.avatar, type);
+  }, [activeChat, initiateCall, getUserId]);
 
-  const handleEndOrRejectCall = useCallback((duration = 0, isCallerSequence = false) => {
-    const partner = callData.partnerId;
-    if (socket && partner) socket.emit('end-call', { to: partner });
-    
-    if (partner && callData.isActive && isCallerSequence) { 
-      let callText = duration > 0 ? (Math.floor(duration / 60) > 0 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : `${duration % 60}s`) : 'Missed Call';
-      handleSendMessage(callText, 'call', partner, { callType: callData.callType, duration: Number(duration) });
-    }
-    setCallData({ isActive: false, signal: null, partnerId: null, callType: 'video', startTime: null, isCaller: false });
-  }, [callData, socket, handleSendMessage]);
+  // 🗑️ CLEANUP: 'handleEndOrRejectCall' ഫംഗ്ഷൻ ഇവിടെ നിന്നും പൂർണ്ണമായി ഒഴിവാക്കി
 
   const filteredContacts = useMemo(() => {
     return contacts.filter(c => (c.name || 'User').toLowerCase().includes(searchQuery.toLowerCase()));
@@ -296,21 +261,9 @@ const Chats = () => {
     <div className={`flex w-full h-[calc(100dvh-75px)] overflow-hidden justify-center ${theme.appBg} transition-colors duration-300`}>
       <div className={`flex w-full max-w-[1600px] mx-auto h-full ${theme.panelBg} overflow-hidden relative`}>
         
-        {/* WebRTC Video/Audio Overlay */}
-        {callData.isActive && (
-          <VideoCall 
-            socket={socket} 
-            currentUserId={currentUserId} 
-            activeChatId={callData.partnerId} 
-            incomingSignal={callData.signal} 
-            onEndCall={handleEndOrRejectCall} 
-            callType={callData.callType} 
-            isCaller={callData.isCaller}  
-          />
-        )}
+        {/* 🗑️ CLEANUP: ഇവിടെ കിടന്നിരുന്ന ലോക്കൽ <VideoCall /> കമ്പോണന്റ് എടുത്തുമാറ്റി */}
         
         {/* Left Hand Contacts Panel */}
-        {/* 📱 Mobile: Hidden when a chat is selected. Desktop: Always visible (w-400px) */}
         <div className={`w-full md:w-[350px] lg:w-[400px] h-full flex-col shrink-0 border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
           
           <div className={`${theme.headerBg} p-3.5 flex justify-between items-center shrink-0 ${theme.iconColor}`}>
@@ -368,7 +321,6 @@ const Chats = () => {
         </div>
         
         {/* Right Hand Chat Space Window */}
-        {/* 📱 Mobile: Visible only when a chat is selected. Desktop: Always visible */}
         <div className={`w-full h-full flex-col flex-1 min-w-0 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
           <ChatWindow 
             activeChat={activeChat} 
