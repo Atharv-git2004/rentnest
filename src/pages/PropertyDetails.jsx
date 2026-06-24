@@ -32,7 +32,6 @@ const PropertyDetails = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   
-  // 🚀 PRO FIX: വെറും image url-ന് പകരം ഏത് റൂം ആണെന്ന് കൃത്യമായി അറിയാൻ Index State വെച്ചു!
   const [selectedRoomIndex, setSelectedRoomIndex] = useState(0);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -55,6 +54,9 @@ const PropertyDetails = () => {
   const ownerId = property?.owner?._id || property?.ownerId || property?.owner;
   const callTargetId = incomingCallData ? (incomingCallData.from?._id || incomingCallData.from) : ownerId;
 
+  // 🚀 FIX 1: പ്രോപ്പർട്ടി ഓണർ തന്നെയാണോ ലോഗിൻ ചെയ്തിരിക്കുന്നത് എന്ന് ചെക്ക് ചെയ്യുന്നു
+  const isOwner = Boolean(currentUserId && ownerId && String(currentUserId) === String(ownerId));
+
   // Fetch Property Details
   useEffect(() => {
     const fetchPropertyDetails = async () => {
@@ -67,7 +69,7 @@ const PropertyDetails = () => {
         if (res.ok) {
           const actualData = resData.data || resData;
           setProperty(actualData);
-          setSelectedRoomIndex(0); // പേജ് ലോഡ് ആകുമ്പോൾ എപ്പോഴും ആദ്യത്തെ റൂം കാണിക്കും
+          setSelectedRoomIndex(0); 
         } else {
           setFetchError(true);
         }
@@ -113,7 +115,7 @@ const PropertyDetails = () => {
 
     const receiveMessageHandler = (data) => {
       const msgSenderId = data.senderId?._id || data.senderId;
-      if (msgSenderId === ownerId) {
+      if (String(msgSenderId) === String(ownerId)) {
         setMessages((prev) => [...prev, data]);
       }
     };
@@ -171,7 +173,7 @@ const PropertyDetails = () => {
     }
   };
 
-  // Start Call
+  // 🚀 FIX 3: കോൾ വർക്ക് ആവാൻ കോൾ സ്റ്റാർട്ട് ചെയ്യുമ്പോൾ ചാറ്റ് വിൻഡോ ക്ലോസ് ചെയ്യുന്നു
   const handleStartCall = (type) => {
     if (!user) {
       alert("Please login to call the owner.");
@@ -179,6 +181,7 @@ const PropertyDetails = () => {
     }
     setCallType(type);
     setIsCalling(true);
+    setIsChatOpen(false); // Close chat to avoid overlapping UI
   };
 
   // End Call
@@ -226,7 +229,6 @@ const PropertyDetails = () => {
     );
   }
 
-  // 🚀 റൂം ലിസ്റ്റ് ജനറേറ്റ് ചെയ്യുമ്പോൾ description കൂടി ഒപ്പം എടുക്കുന്നു
   const getRoomList = () => {
     let list = [];
     if (property.houseImage || property.image) {
@@ -243,11 +245,8 @@ const PropertyDetails = () => {
   };
 
   const roomList = getRoomList();
-  
-  // നിലവിൽ സെലക്ട് ചെയ്തിരിക്കുന്ന റൂം ഒബ്ജക്റ്റ്
   const activeRoom = roomList[selectedRoomIndex] || roomList[0] || {};
   const activeImageUrl = getImageUrl(activeRoom.imageUrl);
-  
   const ownerData = property.owner || {};
 
   return (
@@ -255,35 +254,38 @@ const PropertyDetails = () => {
       
       {/* VIDEO/AUDIO CALL COMPONENT */}
       {isCalling && (
-        <VideoCall 
-          socket={socket}
-          currentUserId={currentUserId}
-          activeChatId={callTargetId} 
-          callType={callType}
-          incomingSignal={incomingCallData?.signal || null}
-          onEndCall={handleEndCall}
-        />
+        <div className="fixed inset-0 z-[9999]">
+          <VideoCall 
+            socket={socket}
+            currentUserId={currentUserId}
+            activeChatId={callTargetId} 
+            callType={callType}
+            incomingSignal={incomingCallData?.signal || null}
+            onEndCall={handleEndCall}
+          />
+        </div>
       )}
 
       {/* INCOMING CALL MODAL */}
       {incomingCallData && !isCalling && (
-        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl text-center shadow-2xl animate-bounce">
+        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center backdrop-blur-sm p-4">
+          <div className="bg-white p-6 sm:p-8 rounded-2xl text-center shadow-2xl animate-bounce w-full max-w-sm">
             <div className="w-20 h-20 bg-slate-900 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4 animate-pulse">
               {callTargetId ? String(callTargetId).slice(-2).toUpperCase() : 'CU'}
             </div>
             <h3 className="text-xl font-bold mb-2">Incoming {incomingCallData.callType} Call</h3>
             <p className="text-slate-500 mb-6">User is calling you...</p>
-            <div className="flex gap-4 justify-center">
+            {/* 🚀 FIX 2: മൊബൈലിലും ഭംഗിയായി കാണാൻ flex-col sm:flex-row കൊടുത്തു */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button 
                 onClick={() => { setCallType(incomingCallData.callType); setIsCalling(true); }} 
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors"
+                className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors"
               >
                 Accept
               </button>
               <button 
                 onClick={() => { setIncomingCallData(null); if (socket) socket.emit('end-call', { to: callTargetId }); }} 
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors"
+                className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-colors"
               >
                 Decline
               </button>
@@ -302,13 +304,10 @@ const PropertyDetails = () => {
         </span>
       </div>
 
-      {/* --- REPAIRED IMAGE GALLERY & SPECIAL DESCRIPTION SECTION --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           
-          {/* LEFT SIDE: MAIN IMAGE + SPECIAL DESCRIPTION CARD */}
           <div className="lg:col-span-2 flex flex-col gap-3">
-            
             <div className="relative bg-slate-100 rounded-2xl overflow-hidden h-[260px] md:h-[460px] flex-shrink-0 group border border-slate-200 shadow-xs">
               {activeImageUrl ? (
                 <img 
@@ -323,7 +322,6 @@ const PropertyDetails = () => {
               )}
             </div>
 
-            {/* ✨ THE ROOM SPECIAL DESCRIPTION CARD */}
             <AnimatePresence mode="wait">
               {activeRoom.description && (
                 <motion.div 
@@ -343,10 +341,8 @@ const PropertyDetails = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-
           </div>
 
-          {/* RIGHT SIDE: THUMBNAILS GRID */}
           <div className="flex lg:grid lg:grid-cols-2 gap-3 overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto h-auto lg:h-[460px] content-start pb-2 lg:pb-0 pr-1 snap-x">
             {roomList.map((room, idx) => {
               const currentImgUrl = getImageUrl(room.imageUrl);
@@ -372,7 +368,6 @@ const PropertyDetails = () => {
         </div>
       </div>
 
-      {/* DETAILS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-2 space-y-8">
           <div className="space-y-4">
@@ -425,27 +420,35 @@ const PropertyDetails = () => {
                 <p className="text-sm font-black text-slate-800">{property.ownerName || ownerData.name || 'Owner'}</p>
               </div>
             </div>
-            <div className="space-y-2.5">
-              <button onClick={() => setIsChatOpen(true)} className="w-full bg-slate-950 hover:bg-slate-900 text-white font-bold py-3.5 px-4 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm shadow-slate-950/10">
-                <MessageSquare size={16} /> Chat With Owner
-              </button>
 
-              <div className="flex gap-2">
-                <button onClick={() => handleStartCall('audio')} className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
-                  <Phone size={16} /> Audio Call
+            {/* 🚀 FIX 1 & 2: ഓണർക്ക് ഈ കോൺടാക്ട് ബട്ടണുകൾ കാണിക്കില്ല. അല്ലാത്തവർക്ക് ഇത് മൊബൈലിലും ഗ്രിഡ് ആയി കാണിക്കും */}
+            {!isOwner ? (
+              <div className="space-y-2.5">
+                <button onClick={() => setIsChatOpen(true)} className="w-full bg-slate-950 hover:bg-slate-900 text-white font-bold py-3.5 px-4 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm shadow-slate-950/10">
+                  <MessageSquare size={16} /> Chat With Owner
                 </button>
-                <button onClick={() => handleStartCall('video')} className="flex-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
-                  <Video size={16} /> Video Call
-                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => handleStartCall('audio')} className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
+                    <Phone size={16} /> Audio Call
+                  </button>
+                  <button onClick={() => handleStartCall('video')} className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-3.5 px-2 rounded-xl transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
+                    <Video size={16} /> Video Call
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-700 font-bold py-3 px-4 rounded-xl text-center text-sm">
+                This is your property
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* LIVE CHAT BOX */}
       <AnimatePresence>
-        {isChatOpen && (
+        {isChatOpen && !isOwner && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsChatOpen(false)} className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-xs" />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed inset-y-0 right-0 w-full sm:w-[400px] bg-white z-[100] shadow-2xl flex flex-col border-l border-slate-100">
@@ -470,7 +473,7 @@ const PropertyDetails = () => {
                 <div className="text-center"><span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-100 line-clamp-1">Inquiry regarding: {property.title}</span></div>
                 {messages.map((msg, index) => {
                   const msgSenderId = msg.senderId?._id || msg.senderId;
-                  const isMyMessage = msg.sender === 'user' || (msgSenderId && msgSenderId.toString() === currentUserId?.toString());
+                  const isMyMessage = msg.sender === 'user' || (msgSenderId && String(msgSenderId) === String(currentUserId));
 
                   return (
                     <div key={msg._id || msg.id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
