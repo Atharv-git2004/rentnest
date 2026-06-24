@@ -1,7 +1,5 @@
-// Chats.jsx
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Search, Phone, Video, MessageSquare, PhoneOff, 
   Home as HomeIcon, User, Sun, Moon
@@ -11,13 +9,14 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
 import ChatWindow from '../components/ChatWindow'; 
-import { useCall } from '../App'; // 🚀 PRO FIX: App.jsx-ൽ നിന്നും Global Call Hook ഇമ്പോർട്ട് ചെയ്തു!
+import { useCall } from '../App'; // 🚀 PRO FIX: Global Call Hook
 
 const Chats = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // 🚀 PRO FIX: ഇതിലൂടെയാണ് Property പേജിൽ നിന്നുള്ള ഡാറ്റ ലഭിക്കുന്നത്
   const socket = useSocket();
   const { user } = useAuth(); 
-  const { initiateCall } = useCall(); // 🚀 PRO FIX: Global Hook വിളിച്ച് initiateCall ഫംഗ്ഷൻ എടുക്കുന്നു
+  const { initiateCall } = useCall(); 
 
   const getUserId = useCallback((userObj) => {
     if (!userObj) return '';
@@ -40,8 +39,6 @@ const Chats = () => {
     activeChatIdRef.current = activeChatId; 
   }, [activeChatId]);
 
-  // 🗑️ CLEANUP: ഇവിടെ കിടന്നിരുന്ന ലോക്കൽ 'callData' സ്റ്റേറ്റ് പൂർണ്ണമായി ഒഴിവാക്കി!
-
   const theme = useMemo(() => {
     return isDarkMode ? {
       appBg: 'bg-[#0a1014]', panelBg: 'bg-[#111b21]', headerBg: 'bg-[#202c33]', chatBg: 'bg-[#0b141a]',
@@ -57,6 +54,40 @@ const Chats = () => {
       iconColor: 'text-[#54656f]', iconHover: 'hover:text-[#111b21]',
     };
   }, [isDarkMode]);
+
+  // 🚀 PRO FIX: PropertyDetails ൽ നിന്നും നാവിഗേറ്റ് ചെയ്ത് വരുമ്പോൾ വർക്ക് ആകുന്ന ലോജിക്
+  useEffect(() => {
+    if (location.state && location.state.ownerId) {
+      const { ownerId, ownerName, ownerAvatar, startCall, callType } = location.state;
+      
+      const newActiveChat = { 
+        _id: ownerId, 
+        name: ownerName, 
+        avatar: ownerAvatar 
+      };
+
+      // 1. ചാറ്റ് വിൻഡോ ഓപ്പൺ ആക്കാൻ സെറ്റ് ചെയ്യുന്നു
+      setActiveChat(newActiveChat);
+
+      // 2. കോൺടാക്ട് ലിസ്റ്റിൽ ഇല്ലെങ്കിൽ ആഡ് ചെയ്യുന്നു
+      setContacts((prev) => {
+        const exists = prev.find(c => getUserId(c) === ownerId);
+        if (!exists) return [newActiveChat, ...prev];
+        return prev;
+      });
+
+      // 3. Call ചെയ്യാൻ പറഞ്ഞിട്ടുണ്ടെങ്കിൽ ഓട്ടോമാറ്റിക് ആയി വിളിക്കുന്നു
+      if (startCall && initiateCall) {
+        // UI Render ആകാൻ ചെറിയൊരു ഡിലേ കൊടുക്കുന്നു
+        setTimeout(() => {
+          initiateCall(ownerId, ownerName, ownerAvatar, callType);
+        }, 500);
+      }
+
+      // 4. Refresh ചെയ്യുമ്പോൾ വീണ്ടും കട്ട് ആവാതിരിക്കാൻ History ൽ നിന്നും state ക്ലിയർ ചെയ്യുന്നു
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, getUserId, initiateCall, navigate, location.pathname]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -222,8 +253,6 @@ const Chats = () => {
       });
     };
 
-    // 🗑️ CLEANUP: ഇവിടെ കിടന്നിരുന്ന ലോക്കൽ call-ended, incoming-call ലിസണറുകൾ വെട്ടിമാറ്റി!
-
     socket.on('receive-message', handleReceiveMessage);
     socket.on('messages-read', handleMessagesRead);
     socket.on('receive-edit', handleMessageEdited);       
@@ -244,14 +273,11 @@ const Chats = () => {
     if (socket && currentUserId) socket.emit('mark-messages-read', { senderId: contactId, receiverId: currentUserId });
   }, [socket, currentUserId, getUserId]);
 
-  // 🚀 PRO FIX: ഇനി കോൾ വിളിക്കുന്നത് App.jsx-ലെ 'initiateCall' വഴിയാണ്!
   const handleStartCall = useCallback((type = 'video') => {
     if (!activeChat || !initiateCall) return;
     const partnerId = getUserId(activeChat);
     initiateCall(partnerId, activeChat.name, activeChat.avatar, type);
   }, [activeChat, initiateCall, getUserId]);
-
-  // 🗑️ CLEANUP: 'handleEndOrRejectCall' ഫംഗ്ഷൻ ഇവിടെ നിന്നും പൂർണ്ണമായി ഒഴിവാക്കി
 
   const filteredContacts = useMemo(() => {
     return contacts.filter(c => (c.name || 'User').toLowerCase().includes(searchQuery.toLowerCase()));
@@ -260,8 +286,6 @@ const Chats = () => {
   return (
     <div className={`flex w-full h-[calc(100dvh-75px)] overflow-hidden justify-center ${theme.appBg} transition-colors duration-300`}>
       <div className={`flex w-full max-w-[1600px] mx-auto h-full ${theme.panelBg} overflow-hidden relative`}>
-        
-        {/* 🗑️ CLEANUP: ഇവിടെ കിടന്നിരുന്ന ലോക്കൽ <VideoCall /> കമ്പോണന്റ് എടുത്തുമാറ്റി */}
         
         {/* Left Hand Contacts Panel */}
         <div className={`w-full md:w-[350px] lg:w-[400px] h-full flex-col shrink-0 border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
