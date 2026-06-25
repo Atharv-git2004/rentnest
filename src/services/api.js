@@ -3,7 +3,8 @@
  * Professional API Request Service with robust error handling and auto Content-Type management.
  */
 
-const BASE_URL = import.meta.env?.VITE_API_URL || 'https://rentnest-backend-civ9.onrender.com/api';
+// 💡 ഇവിടെയാണ് മാറ്റം വരുത്തിയിരിക്കുന്നത്. Render ലിങ്കിന് പകരം Localhost നൽകി.
+const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
 
 export const apiRequest = async (endpoint, options = {}) => {
   // എപ്പൊഴും endpoint '/' വെച്ചാണ് തുടങ്ങുന്നത് എന്ന് ഉറപ്പാക്കാൻ

@@ -14,12 +14,12 @@ const AdminSidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen
     navigate('/login');
   };
 
-  // സൈഡ്ബാർ മെനു ലിസ്റ്റ്
+  // സൈഡ്ബാർ മെനു ലിസ്റ്റ് (inquiries മാറ്റി complaints ആക്കി)
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={20} /> },
     { id: 'users', label: 'Manage Users', icon: <Users size={20} /> },
     { id: 'properties', label: 'Manage Properties', icon: <Building2 size={20} /> },
-    { id: 'inquiries', label: 'Manage Inquiries', icon: <MessageSquare size={20} /> },
+    { id: 'complaints', label: 'Manage Complaints', icon: <MessageSquare size={20} /> },
   ];
 
   return (

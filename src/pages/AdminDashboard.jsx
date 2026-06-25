@@ -7,7 +7,8 @@ import AdminSidebar from '../components/admin/AdminSidebar';
 import AdminOverview from '../components/admin/AdminOverview';
 import ManageUsers from '../components/admin/ManageUsers';
 import ManageProperties from '../components/admin/ManageProperties';
-import ManageInquiries from '../components/admin/ManageInquiries';
+// ManageInquiries മാറ്റി ManageComplaints ആക്കി ഉൾപ്പെടുത്തിയിട്ടുണ്ട് 👇
+import ManageComplaints from '../components/admin/ManageComplaints';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,8 +32,8 @@ const AdminDashboard = () => {
         return <ManageUsers />;
       case 'properties':
         return <ManageProperties />;
-      case 'inquiries':
-        return <ManageInquiries />;
+      case 'complaints': // 'inquiries' മാറ്റി 'complaints' ആക്കി
+        return <ManageComplaints />;
       default:
         return <AdminOverview />;
     }
@@ -42,7 +43,6 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-slate-50 flex relative">
       
       {/* --- SIDEBAR COMPONENT --- */}
-      {/* നമ്മൾ പുതിയതായി ഉണ്ടാക്കിയ AdminSidebar ഇവിടെ വിളിക്കുന്നു */}
       <AdminSidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
         </header>
 
         {/* Dynamic Sub-Component Body */}
-        <main className="flex-1 bg-slate-50 overflow-y-auto">
+        <main className="flex-1 bg-slate-50 overflow-y-auto p-4 sm:p-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
