@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast'; 
 import { 
   Building2, UserPlus, LogOut, User, Menu, X, AlertTriangle,
-  Home as HomeIcon, MessageSquare, Compass, Gift, HelpCircle, ShieldCheck, LayoutDashboard 
+  Home as HomeIcon, MessageSquare, Compass, HelpCircle, ShieldCheck, LayoutDashboard 
 } from 'lucide-react';
 import ComplaintModal from './ComplaintModal'; 
+import { useAuth } from '../context/AuthContext'; 
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -14,10 +15,15 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false); 
   const [isComplaintOpen, setIsComplaintOpen] = useState(false); 
 
-  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  const { user, logout } = useAuth();
+
+  const localUser = JSON.parse(localStorage.getItem('userInfo'));
+  const userInfo = user || localUser;
 
   const handleLogout = () => {
+    if (logout) logout(); 
     localStorage.removeItem('userInfo');
+    
     toast.success('Logged out successfully!'); 
     setIsOpen(false);
     navigate('/login');
@@ -58,10 +64,7 @@ const Navbar = () => {
               <Compass size={16} /> <span>Explore</span>
             </Link>
 
-            <Link to="/offers" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/offers')}`}>
-              <Gift size={16} /> <span>Offers</span>
-            </Link>
-
+            {/* 💡 Only How It Works Kept Here */}
             <Link to="/how-it-works" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/how-it-works')}`}>
               <HelpCircle size={16} /> <span>How It Works</span>
             </Link>
@@ -100,10 +103,8 @@ const Navbar = () => {
           <div className="flex items-center gap-2 md:gap-3 text-sm font-semibold">
             {userInfo ? (
               <div className="flex items-center gap-2 md:gap-3">
-                {/* Profile Badge with Google Image */}
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl text-slate-700 font-bold text-xs">
                   
-                  {/* Image Render Logic */}
                   {userInfo?.picture || userInfo?.avatar ? (
                     <img 
                       src={userInfo.picture || userInfo.avatar} 
@@ -124,7 +125,6 @@ const Navbar = () => {
                   </span>
                 </div>
 
-                {/* Logout Button */}
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 md:px-3 rounded-xl transition-colors cursor-pointer text-xs font-bold"
@@ -145,7 +145,6 @@ const Navbar = () => {
               </div>
             )}
 
-            {/* Mobile Menu Toggle Button */}
             <button 
               onClick={() => setIsOpen(!isOpen)} 
               className="p-1.5 text-slate-700 hover:bg-gray-100 rounded-xl md:hidden transition-colors cursor-pointer"
@@ -173,10 +172,7 @@ const Navbar = () => {
                 <Compass size={16} /> <span>Explore</span>
               </Link>
 
-              <Link to="/offers" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/offers')}`}>
-                <Gift size={16} /> <span>Offers</span>
-              </Link>
-
+              {/* 💡 Only How It Works Kept Here for Mobile too */}
               <Link to="/how-it-works" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/how-it-works')}`}>
                 <HelpCircle size={16} /> <span>How It Works</span>
               </Link>
@@ -214,7 +210,6 @@ const Navbar = () => {
         </AnimatePresence>
       </motion.nav>
 
-      {/* COMPLAINT MODAL WINDOW */}
       <ComplaintModal isOpen={isComplaintOpen} onClose={() => setIsComplaintOpen(false)} />
     </>
   );

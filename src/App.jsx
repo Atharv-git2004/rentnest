@@ -1,16 +1,13 @@
-// App.jsx
-
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Building2, LogOut } from 'lucide-react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Context & Components
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import BottomNavbar from './components/BottomNavbar';
-import VideoCall from './components/VideoCall'; // 🚀 PRO FIX: Global VideoCall Overlay
+import VideoCall from './components/VideoCall'; 
+import Navbar from './components/Navbar'; // 💡 പ്രധാന Navbar ഇവിടെ ഇമ്പോർട്ട് ചെയ്തു
 import { apiRequest } from './services/api';
 
 // Pages
@@ -86,7 +83,7 @@ const GlobalCallProvider = ({ children }) => {
     };
   }, [socket, currentUserId]);
 
-  // 🚀 ഫ്രണ്ട്-എൻഡിൽ നിന്ന് പുതിയ കോൾ വിളിക്കാൻ (Chats.jsx-ൽ നിന്നും വിളിക്കാനുള്ള ഫംഗ്ഷൻ)
+  // 🚀 ഫ്രണ്ട്-എൻഡിൽ നിന്ന് പുതിയ കോൾ വിളിക്കാൻ
   const initiateCall = useCallback((partnerId, partnerName, partnerAvatar, type = 'video') => {
     if (!socket || !partnerId) return;
     setCallData({ 
@@ -101,7 +98,7 @@ const GlobalCallProvider = ({ children }) => {
     });
   }, [socket]);
 
-  // കോൾ ലോഗ് ഡാറ്റാബേസിൽ സേവ് ചെയ്യാൻ (Caller മാത്രം സേവ് ചെയ്യും)
+  // കോൾ ലോഗ് ഡാറ്റാബേസിൽ സേവ് ചെയ്യാൻ
   const handleSendMessage = useCallback(async (messageText, type = 'call', partnerId, callDetails) => {
     if (!partnerId || !currentUserId) return;
     const payload = { 
@@ -141,7 +138,7 @@ const GlobalCallProvider = ({ children }) => {
     <CallContext.Provider value={{ callData, initiateCall, endCall }}>
       {children}
       
-      {/* 🚀 GLOBAL POPUP: യൂസർ ഏതു പേജിൽ ആണെങ്കിലും സ്ക്രീനിൽ തെളിയുന്ന കോൾ വിൻഡോ */}
+      {/* 🚀 GLOBAL POPUP */}
       {callData.isActive && (
         <VideoCall 
           socket={socket} 
@@ -159,61 +156,11 @@ const GlobalCallProvider = ({ children }) => {
   );
 };
 
-// --- NAVBAR COMPONENT ---
-const Navbar = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  return (
-    <motion.nav className="sticky top-0 z-50 backdrop-blur-md bg-white/90 border-b border-gray-100 px-4 py-3.5 shadow-sm">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="bg-green-600 text-white p-2 rounded-xl">
-            <Building2 size={20} />
-          </div>
-          <span className="text-xl font-black text-slate-800">
-            Rent<span className="text-green-600">Nest</span>
-          </span>
-        </Link>
-        
-        <div className="hidden md:flex gap-6 font-semibold text-gray-600 text-sm">
-          <Link to="/" className="hover:text-green-600 transition-colors">Home</Link>
-          <Link to="/explore" className="hover:text-green-600 transition-colors">Explore</Link>
-          {user && (
-            <>
-              <Link to="/chats" className="hover:text-green-600 transition-colors">Chats</Link>
-              {user.role === 'owner' && <Link to="/dashboard" className="text-blue-600 transition-colors">Dashboard</Link>}
-              {user.role === 'admin' && <Link to="/admin" className="text-purple-600 transition-colors">Admin</Link>}
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {user ? (
-            <button onClick={handleLogout} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
-              <LogOut size={14} /> <span className="hidden sm:inline">Logout</span>
-            </button>
-          ) : (
-            <Link to="/login" className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm">
-              Sign In
-            </Link>
-          )}
-        </div>
-      </div>
-    </motion.nav>
-  );
-};
-
 // --- APP CONTENT COMPONENT ---
 const AppContent = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 pb-16 md:pb-0">
-      <Navbar />
+      <Navbar /> {/* 💡 സെപ്പറേറ്റ് ഫയലിൽ നിന്നുള്ള Navbar ഇവിടെ വർക്ക് ചെയ്യും */}
       <div className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />

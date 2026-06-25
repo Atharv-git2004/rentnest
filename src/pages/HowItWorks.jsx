@@ -1,290 +1,177 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { 
+  Search, 
+  MessageSquare, 
+  Home as HomeIcon, 
+  PlusCircle, 
+  ShieldCheck, 
+  Banknote,
+  ArrowRight
+} from 'lucide-react';
 
 const HowItWorks = () => {
-  // Track active hover state to drive luxury interactive lift transitions
-  const [hoveredElement, setHoveredElement] = useState(null);
-
-  // 🎨 Premium Emerald & Slate Unified Styling System
-  const styles = {
-    container: {
-      padding: '80px 20px',
-      maxWidth: '1200px',
-      margin: '0 auto',
-      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-      backgroundColor: '#ffffff',
-    },
-    header: {
-      textAlign: 'center',
-      marginBottom: '60px',
-    },
-    mainTitle: {
-      fontSize: '36px',
-      color: '#0f172a', // Slate 900
-      marginBottom: '16px',
-      fontWeight: '800',
-      letterSpacing: '-0.03em',
-    },
-    subtitle: {
-      color: '#64748b', // Slate 500
-      fontSize: '16px',
-      maxWidth: '750px',
-      margin: '0 auto',
-      lineHeight: '1.6',
-      fontWeight: '500',
-    },
-    sectionGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-      gap: '40px',
-      marginBottom: '50px',
-    },
-    column: {
-      backgroundColor: '#ffffff',
-      borderRadius: '20px',
-      // High-end subtle 3D shadow depth layering
-      boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.04), 0 10px 10px -5px rgba(15, 23, 42, 0.02)',
-      padding: '40px 35px',
-      border: '1px solid #f1f5f9',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      transition: 'all 0.3s ease',
-    },
-    columnHeaderTenant: {
-      borderBottom: '3px solid #10b981', // Unified Brand Accent
-      paddingBottom: '20px',
-      marginBottom: '30px',
-    },
-    columnHeaderOwner: {
-      borderBottom: '3px solid #059669', // Darker Emerald Accent
-      paddingBottom: '20px',
-      marginBottom: '30px',
-    },
-    colTitle: {
-      fontSize: '22px',
-      fontWeight: '800',
-      color: '#0f172a',
-      margin: '0 0 8px 0',
-    },
-    colDesc: {
-      fontSize: '14px',
-      color: '#64748b',
-      margin: 0,
-      fontWeight: '500',
-    },
-    stepCard: {
-      display: 'flex',
-      gap: '20px',
-      alignItems: 'flex-start',
-      marginBottom: '24px',
-      padding: '20px',
-      borderRadius: '16px',
-      backgroundColor: '#f8fafc', // Modern Off-white/slate fallback
-      border: '1px solid #f1f5f9',
-    },
-    stepNumberTenant: {
-      backgroundColor: '#ecfdf5',
-      color: '#059669',
-      minWidth: '36px',
-      height: '36px',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontWeight: '800',
-      fontSize: '15px',
-    },
-    stepNumberOwner: {
-      backgroundColor: '#f0fdf4',
-      color: '#16a34a',
-      minWidth: '36px',
-      height: '36px',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontWeight: '800',
-      fontSize: '15px',
-    },
-    stepHeading: {
-      margin: '0 0 6px 0',
-      color: '#0f172a',
-      fontSize: '16px',
-      fontWeight: '700',
-    },
-    stepText: {
-      margin: 0,
-      color: '#475569', // Slate 600
-      fontSize: '14px',
-      lineHeight: '1.5',
-    },
-    tenantButton: {
-      display: 'block',
-      textAlign: 'center',
-      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-      color: '#ffffff',
-      padding: '14px',
-      borderRadius: '12px',
-      textDecoration: 'none',
-      fontWeight: '700',
-      fontSize: '15px',
-      marginTop: '20px',
-      boxShadow: hoveredElement === 'tenantBtn' ? '0 12px 20px -6px rgba(16, 185, 129, 0.4)' : 'none',
-      transform: hoveredElement === 'tenantBtn' ? 'translateY(-2px)' : 'translateY(0)',
-      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    },
-    ownerButton: {
-      display: 'block',
-      textAlign: 'center',
-      backgroundColor: '#ffffff',
-      color: '#0f172a',
-      padding: '13px',
-      borderRadius: '12px',
-      textDecoration: 'none',
-      fontWeight: '700',
-      fontSize: '15px',
-      marginTop: '20px',
-      border: '1px solid #e2e8f0',
-      boxShadow: hoveredElement === 'ownerBtn' ? '0 10px 15px -3px rgba(15, 23, 42, 0.05)' : 'none',
-      transform: hoveredElement === 'ownerBtn' ? 'translateY(-2px)' : 'translateY(0)',
-      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    },
-    safetyBox: {
-      marginTop: '60px',
-      padding: '24px',
-      backgroundColor: '#fff9db', // Extremely soft warning yellow
-      borderLeft: '4px solid #f59e0b',
-      borderRadius: '12px',
-    },
-    safetyTitle: {
-      margin: '0 0 6px 0',
-      color: '#78350f',
-      fontWeight: '700',
-      fontSize: '15px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px'
-    },
-    safetyText: {
-      margin: 0,
-      color: '#92400e',
-      fontSize: '14px',
-      lineHeight: '1.6',
-      fontWeight: '500'
+  // Animation Variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.2 }
     }
   };
 
+  const itemVariants = {
+    hidden: { y: 30, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
+  };
+
+  const tenantSteps = [
+    {
+      icon: <Search size={32} className="text-green-600" />,
+      title: "1. Explore Properties",
+      description: "Use our smart search to find houses, apartments, or rooms that fit your budget and location preferences perfectly."
+    },
+    {
+      icon: <MessageSquare size={32} className="text-blue-600" />,
+      title: "2. Connect Directly",
+      description: "Chat securely with property owners through our built-in messaging and video call system. No middlemen involved."
+    },
+    {
+      icon: <HomeIcon size={32} className="text-purple-600" />,
+      title: "3. Move In",
+      description: "Finalize the deal, complete the paperwork, and move into your new dream nest with complete peace of mind."
+    }
+  ];
+
+  const ownerSteps = [
+    {
+      icon: <PlusCircle size={32} className="text-amber-600" />,
+      title: "1. List Your Property",
+      description: "Add your property details, upload high-quality photos, and set your terms in just a few clicks."
+    },
+    {
+      icon: <ShieldCheck size={32} className="text-indigo-600" />,
+      title: "2. Verify Tenants",
+      description: "Receive inquiries from verified users. Review their profiles and communicate safely before making a decision."
+    },
+    {
+      icon: <Banknote size={32} className="text-emerald-600" />,
+      title: "3. Start Earning",
+      description: "Rent out your property quickly and start receiving your monthly rental income without any hassle."
+    }
+  ];
+
   return (
-    <div style={styles.container}>
-      
-      {/* 🚀 Dynamic Section Header */}
-      <div style={styles.header}>
-        <h1 style={styles.mainTitle}>How It Works</h1>
-        <p style={styles.subtitle}>
-          Zero brokers, zero hidden commission fees. RentNest Kerala directly links trusted property 
-          owners with premium renters instantly and transparently.
-        </p>
-      </div>
-
-      {/* 👥 Split Client Architecture Grid */}
-      <div style={styles.sectionGrid}>
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         
-        {/* 🏠 1. For Renters / Tenants Module */}
-        <div style={styles.column}>
-          <div>
-            <div style={styles.columnHeaderTenant}>
-              <h2 style={styles.colTitle}>For Tenants 🔍</h2>
-              <p style={styles.colDesc}>Secure your perfect dream home space in 3 effortless steps</p>
-            </div>
-            
-            <div style={styles.stepCard}>
-              <div style={styles.stepNumberTenant}>1</div>
-              <div>
-                <h3 style={styles.stepHeading}>Browse Listings</h3>
-                <p style={styles.stepText}>Explore verified properties using advanced regional, budget, and configuration filters.</p>
-              </div>
-            </div>
+        {/* HEADER SECTION */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
+          <h1 className="text-4xl md:text-5xl font-black text-slate-800 mb-4 tracking-tight">
+            How <span className="text-green-600">RentNest</span> Works
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto font-medium">
+            Whether you're looking for a new home or wanting to rent out your property, we make the process simple, secure, and transparent.
+          </p>
+        </motion.div>
 
-            <div style={styles.stepCard}>
-              <div style={styles.stepNumberTenant}>2</div>
-              <div>
-                <h3 style={styles.stepHeading}>Review Details</h3>
-                <p style={styles.stepText}>Analyze structural breakdowns, localized pricing documentation, and premium space photos.</p>
-              </div>
-            </div>
-
-            <div style={styles.stepCard}>
-              <div style={styles.stepNumberTenant}>3</div>
-              <div>
-                <h3 style={styles.stepHeading}>Connect Directly</h3>
-                <p style={styles.stepText}>Bypass middleman channels. Reach out straight to the verified homeowner to strike a lease deal.</p>
-              </div>
-            </div>
+        {/* FOR TENANTS SECTION */}
+        <div className="mb-20">
+          <div className="flex items-center gap-3 mb-8 justify-center md:justify-start">
+            <span className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider">
+              For Renters
+            </span>
+            <h2 className="text-2xl font-bold text-slate-800">Find Your Next Home</h2>
           </div>
-
-          <Link 
-            to="/properties" 
-            style={styles.tenantButton}
-            onMouseEnter={() => setHoveredElement('tenantBtn')}
-            onMouseLeave={() => setHoveredElement(null)}
+          
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8"
           >
-            Explore Properties
-          </Link>
+            {tenantSteps.map((step, index) => (
+              <motion.div 
+                key={index} 
+                variants={itemVariants}
+                className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group"
+              >
+                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {step.icon}
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-3">{step.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{step.description}</p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
 
-        {/* 🔑 2. For Landlords / Property Owners Module */}
-        <div style={styles.column}>
-          <div>
-            <div style={styles.columnHeaderOwner}>
-              <h2 style={styles.colTitle}>For Owners 👑</h2>
-              <p style={styles.colDesc}>Onboard and lease out your premium real estate assets quickly</p>
-            </div>
-
-            <div style={styles.stepCard}>
-              <div style={styles.stepNumberOwner}>1</div>
-              <div>
-                <h3 style={styles.stepHeading}>Create Profile</h3>
-                <p style={styles.stepText}>Register seamlessly as an explicit landlord/owner entity on our portal completely free.</p>
-              </div>
-            </div>
-
-            <div style={styles.stepCard}>
-              <div style={styles.stepNumberOwner}>2</div>
-              <div>
-                <h3 style={styles.stepHeading}>List Your Property</h3>
-                <p style={styles.stepText}>Utilize the dashboard engine to upload asset media, geographic details, rules, and pricing markers.</p>
-              </div>
-            </div>
-
-            <div style={styles.stepCard}>
-              <div style={styles.stepNumberOwner}>3</div>
-              <div>
-                <h3 style={styles.stepHeading}>Earn & Rent Out</h3>
-                <p style={styles.stepText}>Receive unfiltered, structured requests directly from verified tenants locally or globally.</p>
-              </div>
-            </div>
+        {/* FOR OWNERS SECTION */}
+        <div className="mb-16">
+          <div className="flex items-center gap-3 mb-8 justify-center md:justify-start">
+            <span className="bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider">
+              For Owners
+            </span>
+            <h2 className="text-2xl font-bold text-slate-800">List and Earn</h2>
           </div>
-
-          <Link 
-            to="/register" 
-            style={styles.ownerButton}
-            onMouseEnter={() => setHoveredElement('ownerBtn')}
-            onMouseLeave={() => setHoveredElement(null)}
+          
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8"
           >
-            Register as Owner
-          </Link>
+            {ownerSteps.map((step, index) => (
+              <motion.div 
+                key={index} 
+                variants={itemVariants}
+                className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group"
+              >
+                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {step.icon}
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-3">{step.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{step.description}</p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
 
-      </div>
+        {/* CALL TO ACTION */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="bg-slate-900 rounded-3xl p-8 md:p-12 text-center shadow-xl"
+        >
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+            Ready to get started?
+          </h2>
+          <p className="text-slate-300 mb-8 max-w-xl mx-auto">
+            Join thousands of users who have found their perfect home or reliable tenants through RentNest.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Link to="/explore">
+              <button className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-8 py-3.5 rounded-xl font-bold transition-colors w-full sm:w-auto">
+                Explore Properties <ArrowRight size={18} />
+              </button>
+            </Link>
+            <Link to="/register">
+              <button className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-8 py-3.5 rounded-xl font-bold transition-colors w-full sm:w-auto backdrop-blur-sm">
+                Create an Account
+              </button>
+            </Link>
+          </div>
+        </motion.div>
 
-      {/* 🛡️ Secure Verification & Compliance Footer Alert */}
-      <div style={styles.safetyBox}>
-        <h4 style={styles.safetyTitle}>💡 Safety & Verification Advisory:</h4>
-        <p style={styles.safetyText}>
-          RentNest works as an direct matching platform. To protect your financial security, always visit the real estate 
-          location physically and verify complete ownership credentials before executing advance token deposits or legally binding signatures.
-        </p>
       </div>
     </div>
   );
