@@ -80,6 +80,11 @@ const OwnerDashboard = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!id) {
+      toast.error("Invalid property ID.");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this property listing? This action cannot be undone.")) return;
     
     const loadingToast = toast.loading("Deleting property...");
@@ -88,14 +93,15 @@ const OwnerDashboard = () => {
       const res = await apiRequest(`/properties/${id}`, { method: 'DELETE' });
       
       if (res.ok) {
-        setProperties(prev => prev.filter(prop => prop._id !== id));
+        setProperties(prev => prev.filter(prop => (prop._id || prop.id) !== id));
         toast.success("Property deleted successfully", { id: loadingToast });
       } else {
         throw new Error("Failed to delete from server");
       }
     } catch (err) {
       console.error("Delete error:", err);
-      setProperties(prev => prev.filter(prop => prop._id !== id));
+      // Fallback for UI testing
+      setProperties(prev => prev.filter(prop => (prop._id || prop.id) !== id));
       toast.success("Property removed (Local Test Mode)", { id: loadingToast });
     }
   };
@@ -212,64 +218,69 @@ const OwnerDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 text-sm font-medium text-slate-700">
-                    {properties.map((property) => (
-                      <tr key={property._id} className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="p-4 pl-6 flex items-center gap-4">
-                          <img 
-                            src={getImageUrl(property.houseImage || property.image || property.images?.[0])} 
-                            alt={property.title} 
-                            className="w-16 h-16 object-cover rounded-xl border border-gray-100 bg-slate-50 shadow-sm group-hover:shadow-md transition-shadow"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=120&q=80';
-                            }}
-                          />
-                          <div>
-                            <h4 className="font-bold text-slate-800 line-clamp-1">{property.title}</h4>
-                            <p className="text-xs text-gray-400 mt-1">{property.location}</p>
-                          </div>
-                        </td>
-                        <td className="p-4 font-bold text-slate-800">
-                          ₹{Number(property.price) ? Number(property.price).toLocaleString('en-IN') : property.price}
-                        </td>
-                        <td className="p-4">
-                          {property.status?.toLowerCase() === 'approved' ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                              <CheckCircle size={14} /> Approved
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                              <Clock size={14} /> Pending
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 text-center pr-6">
-                          <div className="flex items-center justify-center gap-2">
-                            <button 
-                              onClick={() => navigate(`/property/${property._id}`)} 
-                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" 
-                              title="View Details"
-                            >
-                              <Eye size={18} />
-                            </button>
-                            <button 
-                              onClick={() => navigate(`/edit-property/${property._id}`)} 
-                              className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all" 
-                              title="Edit Listing"
-                            >
-                              <Edit3 size={18} />
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(property._id)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" 
-                              title="Delete Listing"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {properties.map((property) => {
+                      // 💡 പരിഹാരം ഇവിടെയാണ്: ID കൃത്യമായി എടുക്കുന്നു
+                      const propId = property._id || property.id;
+                      
+                      return (
+                        <tr key={propId} className="hover:bg-slate-50/80 transition-colors group">
+                          <td className="p-4 pl-6 flex items-center gap-4">
+                            <img 
+                              src={getImageUrl(property.houseImage || property.image || property.images?.[0])} 
+                              alt={property.title} 
+                              className="w-16 h-16 object-cover rounded-xl border border-gray-100 bg-slate-50 shadow-sm group-hover:shadow-md transition-shadow"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=120&q=80';
+                              }}
+                            />
+                            <div>
+                              <h4 className="font-bold text-slate-800 line-clamp-1">{property.title}</h4>
+                              <p className="text-xs text-gray-400 mt-1">{property.location}</p>
+                            </div>
+                          </td>
+                          <td className="p-4 font-bold text-slate-800">
+                            ₹{Number(property.price) ? Number(property.price).toLocaleString('en-IN') : property.price}
+                          </td>
+                          <td className="p-4">
+                            {property.status?.toLowerCase() === 'approved' ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                <CheckCircle size={14} /> Approved
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                                <Clock size={14} /> Pending
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 text-center pr-6">
+                            <div className="flex items-center justify-center gap-2">
+                              <button 
+                                onClick={() => navigate(`/property/${propId}`)} 
+                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" 
+                                title="View Details"
+                              >
+                                <Eye size={18} />
+                              </button>
+                              <button 
+                                onClick={() => navigate(`/edit-property/${propId}`)} 
+                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all" 
+                                title="Edit Listing"
+                              >
+                                <Edit3 size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(propId)}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" 
+                                title="Delete Listing"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

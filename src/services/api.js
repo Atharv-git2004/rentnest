@@ -1,9 +1,9 @@
 /**
  * services/api.js
- * Professional API Request Service with robust error handling and auto Content-Type management.
+ * Professional API Request Service with robust error handling, auto Content-Type management,
+ * and Token Expiry (401) handling.
  */
 
-// 💡 ഇവിടെയാണ് മാറ്റം വരുത്തിയിരിക്കുന്നത്. Render ലിങ്കിന് പകരം Localhost നൽകി.
 const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
 
 export const apiRequest = async (endpoint, options = {}) => {
@@ -13,7 +13,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   
   const headers = { ...options.headers };
 
-  // 💡 Auto-manage Body and Content-Type
+  // 1. Auto-manage Body and Content-Type
   if (options.body) {
     if (options.body instanceof FormData) {
       // ബ്രൗസർ സ്വയം ബൗണ്ടറി സഹിതം Content-Type സെറ്റ് ചെയ്തോളും
@@ -30,7 +30,7 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
   }
 
-  // ലോക്കൽ സ്റ്റോറേജിൽ നിന്ന് ടോക്കൺ എടുക്കുന്നു
+  // 2. ലോക്കൽ സ്റ്റോറേജിൽ നിന്ന് ടോക്കൺ എടുക്കുന്നു
   try {
     const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
@@ -46,14 +46,24 @@ export const apiRequest = async (endpoint, options = {}) => {
   console.log(`🚀 API Request: [${options.method || 'GET'}] ${url}`);
 
   try {
-    return await fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers,
     });
+
+    // 3. Handle Token Expiry (401 Unauthorized)
+    if (response.status === 401) {
+      console.warn("⚠️ Session expired. Logging out...");
+      localStorage.removeItem('userInfo');
+      // window.location.href = '/login'; // ടോക്കൺ എക്സ്പയർ ആയാൽ നേരിട്ട് ലോഗിൻ പേജിലേക്ക് വിടാൻ ഇത് അൺകമന്റ് ചെയ്യാം
+    }
+
+    return response;
+    
   } catch (error) {
     console.error(`❌ API Request Error on ${endpoint}:`, error);
     
-    // നെറ്റ്‌വർക്ക് ഫെയിൽ ആയാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ സേഫ് ഒബ്ജക്റ്റ് നൽകുന്നു
+    // 4. നെറ്റ്‌വർക്ക് ഫെയിൽ ആയാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ സേഫ് ഒബ്ജക്റ്റ് നൽകുന്നു
     return {
       ok: false,
       status: 503,

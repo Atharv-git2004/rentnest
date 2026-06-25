@@ -21,6 +21,7 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import EditProperty from './pages/EditProperty';
 import AddProperty from './pages/AddProperty';
+import HowItWorks from './pages/HowItWorks';
 
 // =======================================================
 // 📞 1. GLOBAL CALL CONTEXT & PROVIDER (The Master Hub)
@@ -173,6 +174,7 @@ const AppContent = () => {
           <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/edit-property/:id" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><EditProperty /></ProtectedRoute>} />
           <Route path="/add-property" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><AddProperty /></ProtectedRoute>} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
         </Routes>
       </div>
       <BottomNavbar />
