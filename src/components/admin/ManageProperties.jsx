@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Building2, Trash2, CheckCircle, XCircle, Search, 
@@ -21,21 +21,31 @@ const ManageProperties = () => {
   const [error, setError] = useState('');
   const [selectedProperty, setSelectedProperty] = useState(null);
 
-  useEffect(() => {
-    fetchProperties();
-  }, []);
+  // 💡 Safe API Response Parser (To prevent unexpected token '<' crash)
+  const parseResponse = async (res) => {
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await res.json();
+    }
+    await res.text(); 
+    return { 
+      message: res.status === 404 
+        ? "API Endpoint not found (404)." 
+        : `Server returned an error (${res.status}).`
+    };
+  };
 
-  const fetchProperties = async () => {
+  // 1. പ്രോപ്പർട്ടികൾ ഫെച്ച് ചെയ്യാനുള്ള ഫങ്ഷൻ (Optimized with useCallback)
+  const fetchProperties = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       
-      // 💡 സൂപ്പർ ഫിക്സ്: അഡ്മിൻ പെൻഡിങ് റിക്വസ്റ്റുകൾ കാണാനുള്ള കൃത്യമായ എപിഐ റൂട്ട്
+      // 💡 അഡ്മിൻ പെൻഡിങ് റിക്വസ്റ്റുകൾ കാണാനുള്ള കൃത്യമായ എപിഐ റൂട്ട്
       const res = await apiRequest('/properties/admin/pending'); 
-      const data = await res.json();
+      const data = await parseResponse(res);
 
       if (res.ok) {
-        // ബാക്ക്-എൻഡിൽ നിന്ന് { data: [...] } അല്ലെങ്കിൽ നേരിട്ട് അറേ ആയാണ് വരുന്നതെങ്കിൽ അത് കൈകാര്യം ചെയ്യുന്നു
         if (Array.isArray(data)) {
           setProperties(data);
         } else if (data && Array.isArray(data.data)) {
@@ -55,34 +65,36 @@ const ManageProperties = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProperties();
+  }, [fetchProperties]);
 
   // 2. പ്രോപ്പർട്ടി അപ്രൂവ് ചെയ്യാനോ വെരിഫൈ ചെയ്യാനോ ഉള്ള ഫങ്ഷൻ
   const handleVerifyToggle = async (id, currentStatus) => {
-    // സ്റ്റാറ്റസ് 'Approved' അല്ലെങ്കിൽ 'Pending' എന്നത് ബാക്ക്-എൻഡ് അനുസരിച്ച് 'approved' / 'rejected' ആയി മാറാം
     const action = currentStatus === 'Approved' || currentStatus === 'approved' ? 'rejected' : 'approved';
     
     if (!window.confirm(`Are you sure you want to mark this property as ${action}?`)) return;
 
     try {
-      // 💡 സൂപ്പർ ഫിക്സ്: നിങ്ങളുടെ ബാക്ക്-എൻഡ് റൂട്ടായ /api/properties/admin/verify/:id ലേക്ക് മാറ്റുന്നു
+      // 💡 വെരിഫൈ ചെയ്യാനുള്ള റൂട്ട്
       const res = await apiRequest(`/properties/admin/verify/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ action }), 
+        body: { action }, 
       });
-      const data = await res.json();
+      
+      const data = await parseResponse(res);
 
       if (res.ok) {
         const updatedStatus = action === 'approved' ? 'Approved' : 'Pending';
         
-        // അപ്രൂവ് ചെയ്ത പ്രോപ്പർട്ടിയെ ലിസ്റ്റിൽ നിന്ന് ഒഴിവാക്കുകയോ അല്ലെങ്കിൽ സ്റ്റാറ്റസ് ലൈവ് ആയി മാറ്റുകയോ ചെയ്യാം
-        setProperties(
-          properties.map((prop) =>
+        setProperties((prevProps) =>
+          prevProps.map((prop) =>
             prop._id === id ? { ...prop, status: updatedStatus } : prop
           )
         );
         
-        // മോഡൽ ഓപ്പൺ ആണെങ്കിൽ അതിലും മാറ്റുന്നു
         if (selectedProperty && selectedProperty._id === id) {
           setSelectedProperty(prev => ({ ...prev, status: updatedStatus }));
         }
@@ -105,13 +117,15 @@ const ManageProperties = () => {
       const res = await apiRequest(`/admin/properties/${id}`, {
         method: 'DELETE',
       });
+      
+      const data = await parseResponse(res);
 
       if (res.ok) {
-        setProperties(properties.filter((prop) => prop._id !== id));
+        setProperties((prevProps) => prevProps.filter((prop) => prop._id !== id));
         if (selectedProperty?._id === id) setSelectedProperty(null);
         alert('Property deleted successfully.');
       } else {
-        alert('Failed to delete property');
+        alert(data.message || 'Failed to delete property');
       }
     } catch (err) {
       console.error('Error deleting property:', err);

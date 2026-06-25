@@ -27,12 +27,12 @@ const ManageUsers = () => {
     };
   };
 
-  // 1. ഫെച്ച് ലോജിക് - റൂട്ട് '/admin/users' എന്നാക്കി മാറ്റി
+  // 1. ഫെച്ച് ലോജിക് - റൂട്ട് '/admin/users'ലേക്ക് ഫെച്ച് ചെയ്യുന്നു
   const fetchUsers = useCallback(async () => {
     setError('');
     setLoading(true);
     try {
-      const res = await apiRequest('/admin/users'); // 💡 മാറ്റം ഇവിടെയാണ്
+      const res = await apiRequest('/admin/users'); 
       const data = await parseResponse(res);
 
       if (res.ok) {
@@ -59,7 +59,6 @@ const ManageUsers = () => {
     setError('');
 
     try {
-      // 💡 അഡ്മിൻ റൂട്ട് ആയതിനാൽ /admin/users/${id}/status എന്ന് മാറ്റി
       const res = await apiRequest(`/admin/users/${id}/status`, {
         method: 'PUT',
         body: { status: newStatus }, 
@@ -92,7 +91,6 @@ const ManageUsers = () => {
     setError('');
 
     try {
-      // 💡 അഡ്മിൻ റൂട്ട് ആയതിനാൽ /admin/users/${id} എന്ന് മാറ്റി
       const res = await apiRequest(`/admin/users/${id}`, {
         method: 'DELETE',
       });
