@@ -4,16 +4,29 @@
  * and Token Expiry (401) handling.
  */
 
-const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
+// ട്രെയിലിംഗ് സ്ലാഷ് (Trailing slash) ഒഴിവാക്കുന്നു
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export const apiRequest = async (endpoint, options = {}) => {
-  // എപ്പൊഴും endpoint '/' വെച്ചാണ് തുടങ്ങുന്നത് എന്ന് ഉറപ്പാക്കാൻ
-  const safeEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = `${BASE_URL}${safeEndpoint}`;
   
+  // 1. URL കൃത്യമായി സെറ്റ് ചെയ്യാൻ (Double slashes & Duplicate /api/ ഒഴിവാക്കുന്നു)
+  let url = `${BASE_URL}/${endpoint}`;
+  
+  // http:// ലെ ഡബിൾ സ്ലാഷ് നിലനിർത്തിക്കൊണ്ട് മറ്റ് ഡബിൾ സ്ലാഷുകൾ സിംഗിൾ സ്ലാഷ് ആക്കുന്നു
+  url = url.replace(/([^:]\/)\/+/g, "$1");
+  
+  // VITE_API_URL-ലും endpoint-ലും 'api' വന്നാൽ ഉണ്ടാകുന്ന '/api/api/' പ്രശ്നം പരിഹരിക്കാൻ
+  url = url.replace(/\/api\/api\//g, '/api/');
+  
+  // URL-ൽ ഒരിടത്തും /api ഇല്ലെങ്കിൽ അത് ചേർത്ത് കൊടുക്കാൻ (ആവശ്യമെങ്കിൽ മാത്രം)
+  const urlObj = new URL(url);
+  if (!urlObj.pathname.startsWith('/api')) {
+    url = url.replace(urlObj.pathname, `/api${urlObj.pathname}`);
+  }
+
   const headers = { ...options.headers };
 
-  // 1. Auto-manage Body and Content-Type
+  // 2. Auto-manage Body and Content-Type
   if (options.body) {
     if (options.body instanceof FormData) {
       // ബ്രൗസർ സ്വയം ബൗണ്ടറി സഹിതം Content-Type സെറ്റ് ചെയ്തോളും
@@ -30,7 +43,7 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
   }
 
-  // 2. ലോക്കൽ സ്റ്റോറേജിൽ നിന്ന് ടോക്കൺ എടുക്കുന്നു
+  // 3. ലോക്കൽ സ്റ്റോറേജിൽ നിന്ന് ടോക്കൺ എടുക്കുന്നു
   try {
     const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
@@ -51,11 +64,12 @@ export const apiRequest = async (endpoint, options = {}) => {
       headers,
     });
 
-    // 3. Handle Token Expiry (401 Unauthorized)
+    // 4. Handle Token Expiry (401 Unauthorized)
     if (response.status === 401) {
       console.warn("⚠️ Session expired. Logging out...");
       localStorage.removeItem('userInfo');
-      // window.location.href = '/login'; // ടോക്കൺ എക്സ്പയർ ആയാൽ നേരിട്ട് ലോഗിൻ പേജിലേക്ക് വിടാൻ ഇത് അൺകമന്റ് ചെയ്യാം
+      window.location.href = '/login'; // ടോക്കൺ എക്സ്പയർ ആയാൽ ലോഗിൻ പേജിലേക്ക് വിടാൻ
+      return response;
     }
 
     return response;
@@ -63,7 +77,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   } catch (error) {
     console.error(`❌ API Request Error on ${endpoint}:`, error);
     
-    // 4. നെറ്റ്‌വർക്ക് ഫെയിൽ ആയാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ സേഫ് ഒബ്ജക്റ്റ് നൽകുന്നു
+    // 5. നെറ്റ്‌വർക്ക് ഫെയിൽ ആയാലും ആപ്പ് ക്രാഷ് ആകാതിരിക്കാൻ സേഫ് ഒബ്ജക്റ്റ് നൽകുന്നു
     return {
       ok: false,
       status: 503,

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Building2, MapPin, IndianRupee, Home, Info, ArrowLeft, Save, X } from 'lucide-react';
+// 💡 നിങ്ങളുടെ പ്രോജക്റ്റിൽ custom axios instance ഉണ്ടെങ്കിൽ (ഉദാഹരണത്തിന്: import axios from '../utils/api') അത് ഇവിടെ നൽകുക. 
+// അല്ലെങ്കിൽ താഴെയുള്ളത് ഉപയോഗിക്കാം.
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -32,13 +34,20 @@ const EditProperty = () => {
 
         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         
-        // സിംഗിൾ പ്രോപ്പർട്ടി API കാൾ
-        const { data } = await axios.get(`/api/properties/${id}`, config);
-        
-        // 💡 ഫിക്സ് ചെയ്ത ഭാഗം: ബാക്ക്-എൻഡ് ഡാറ്റ അയക്കുന്ന രീതി അനുസരിച്ച് ഇത് രണ്ടും സപ്പോർട്ട് ചെയ്യും
-        const propertyData = data.data ? data.data : data;
+        // 💡 Vercel-ൽ ഹോസ്റ്റ് ചെയ്യുമ്പോൾ Backend URL കിട്ടാൻ. (ഇതില്ലെങ്കിൽ Vercel-ൽ 404 വരാം)
+        // നിങ്ങളുടെ ബാക്ക്-എൻഡ് URL 'https://rentnest-backend...' പോലെ ആണെങ്കിൽ അത് VITE_API_URL ആയി .env യിൽ സെറ്റ് ചെയ്യണം.
+        const baseURL = import.meta.env.VITE_API_URL || '';
 
-        if (propertyData) {
+        // സിംഗിൾ പ്രോപ്പർട്ടി API കാൾ
+        const { data } = await axios.get(`${baseURL}/api/properties/${id}`, config);
+        
+        // 💡 പരിശോധിക്കാൻ വേണ്ടി: ബ്രൗസറിൽ Right Click -> Inspect -> Console എടുത്തു നോക്കുക
+        console.log("Backend Response:", data); 
+
+        // ബാക്ക്-എൻഡ് ഏത് രീതിയിൽ ഡാറ്റ അയച്ചാലും അത് വർക്ക് ആവാൻ:
+        const propertyData = data.property || data.data || data;
+
+        if (propertyData && propertyData.title) {
           setFormData({
             title: propertyData.title || '',
             location: propertyData.location || '',
@@ -48,11 +57,12 @@ const EditProperty = () => {
             bathrooms: propertyData.bathrooms || '',
             description: propertyData.description || '',
           });
+        } else {
+          toast.error("Property data format is incorrect.");
         }
       } catch (error) {
         console.error("Fetch error:", error);
         toast.error(error.response?.data?.message || 'Failed to load property details');
-        // എറർ വന്നാൽ ഡാഷ്‌ബോർഡിലേക്ക് തിരിച്ചു വിടുന്നു
         navigate('/dashboard'); 
       } finally {
         setIsLoading(false);
@@ -94,13 +104,16 @@ const EditProperty = () => {
         }
       };
 
+      const baseURL = import.meta.env.VITE_API_URL || '';
+
       // അപ്ഡേറ്റ് ചെയ്യാനുള്ള API കാൾ
-      const { data } = await axios.put(`/api/properties/${id}`, formData, config);
+      const { data } = await axios.put(`${baseURL}/api/properties/${id}`, formData, config);
 
       toast.success(data.message || 'Property updated successfully!');
-      navigate('/dashboard'); // സേവ് ചെയ്ത ശേഷം ഡാഷ്‌ബോർഡിലേക്ക് തിരികെ പോകും
+      navigate('/dashboard'); 
       
     } catch (error) {
+      console.error("Update error:", error);
       toast.error(error.response?.data?.message || 'Something went wrong while updating.');
     } finally {
       setIsUpdating(false);
