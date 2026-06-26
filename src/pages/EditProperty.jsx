@@ -35,26 +35,33 @@ const EditProperty = () => {
         // സിംഗിൾ പ്രോപ്പർട്ടി API കാൾ
         const { data } = await axios.get(`/api/properties/${id}`, config);
         
-        if (data.success) {
+        // 💡 ഫിക്സ് ചെയ്ത ഭാഗം: ബാക്ക്-എൻഡ് ഡാറ്റ അയക്കുന്ന രീതി അനുസരിച്ച് ഇത് രണ്ടും സപ്പോർട്ട് ചെയ്യും
+        const propertyData = data.data ? data.data : data;
+
+        if (propertyData) {
           setFormData({
-            title: data.data.title || '',
-            location: data.data.location || '',
-            price: data.data.price || '',
-            type: data.data.type || 'Apartment',
-            bedrooms: data.data.bedrooms || '',
-            bathrooms: data.data.bathrooms || '',
-            description: data.data.description || '',
+            title: propertyData.title || '',
+            location: propertyData.location || '',
+            price: propertyData.price || '',
+            type: propertyData.type || 'Apartment',
+            bedrooms: propertyData.bedrooms || '',
+            bathrooms: propertyData.bathrooms || '',
+            description: propertyData.description || '',
           });
         }
       } catch (error) {
+        console.error("Fetch error:", error);
         toast.error(error.response?.data?.message || 'Failed to load property details');
-        navigate('/dashboard'); // എറർ വന്നാൽ ഡാഷ്‌ബോർഡിലേക്ക് തിരിച്ചു വിടുന്നു
+        // എറർ വന്നാൽ ഡാഷ്‌ബോർഡിലേക്ക് തിരിച്ചു വിടുന്നു
+        navigate('/dashboard'); 
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchPropertyDetails();
+    if (id) {
+      fetchPropertyDetails();
+    }
   }, [id, navigate]);
 
   // ഇൻപുട്ട് ഫീൽഡുകളിൽ മാറ്റം വരുത്തുമ്പോൾ സ്റ്റേറ്റ് അപ്ഡേറ്റ് ചെയ്യാൻ
@@ -90,10 +97,9 @@ const EditProperty = () => {
       // അപ്ഡേറ്റ് ചെയ്യാനുള്ള API കാൾ
       const { data } = await axios.put(`/api/properties/${id}`, formData, config);
 
-      if (data.success) {
-        toast.success(data.message || 'Property updated successfully!');
-        navigate('/dashboard'); // സേവ് ചെയ്ത ശേഷം ഡാഷ്‌ബോർഡിലേക്ക് തിരികെ പോകും
-      }
+      toast.success(data.message || 'Property updated successfully!');
+      navigate('/dashboard'); // സേവ് ചെയ്ത ശേഷം ഡാഷ്‌ബോർഡിലേക്ക് തിരികെ പോകും
+      
     } catch (error) {
       toast.error(error.response?.data?.message || 'Something went wrong while updating.');
     } finally {
