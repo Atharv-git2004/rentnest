@@ -136,7 +136,7 @@ const OwnerDashboard = () => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate('/add-property')} 
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-green-200 text-sm"
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-green-200 text-sm cursor-pointer"
           >
             <Plus size={18} /> Add New Property
           </motion.button>
@@ -201,7 +201,7 @@ const OwnerDashboard = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate('/add-property')}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-2xl font-bold transition-all shadow-lg shadow-green-100 text-sm flex items-center gap-2"
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-2xl font-bold transition-all shadow-lg shadow-green-100 text-sm flex items-center gap-2 cursor-pointer"
                 >
                   <Plus size={16} /> Create First Listing
                 </motion.button>
@@ -219,7 +219,6 @@ const OwnerDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50 text-sm font-medium text-slate-700">
                     {properties.map((property) => {
-                      // 💡 പരിഹാരം ഇവിടെയാണ്: ID കൃത്യമായി എടുക്കുന്നു
                       const propId = property._id || property.id;
                       
                       return (
@@ -257,21 +256,21 @@ const OwnerDashboard = () => {
                             <div className="flex items-center justify-center gap-2">
                               <button 
                                 onClick={() => navigate(`/property/${propId}`)} 
-                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" 
+                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer" 
                                 title="View Details"
                               >
                                 <Eye size={18} />
                               </button>
                               <button 
                                 onClick={() => navigate(`/edit-property/${propId}`)} 
-                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all" 
+                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all cursor-pointer" 
                                 title="Edit Listing"
                               >
                                 <Edit3 size={18} />
                               </button>
                               <button 
                                 onClick={() => handleDelete(propId)}
-                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" 
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer" 
                                 title="Delete Listing"
                               >
                                 <Trash2 size={18} />

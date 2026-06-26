@@ -22,6 +22,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import EditProperty from './pages/EditProperty';
 import AddProperty from './pages/AddProperty';
 import HowItWorks from './pages/HowItWorks';
+import ComplaintsPage from './pages/ComplaintsPage';
 
 // =======================================================
 // 📞 1. GLOBAL CALL CONTEXT & PROVIDER (The Master Hub)
@@ -170,6 +171,10 @@ const AppContent = () => {
           <Route path="/property/:id" element={<PropertyDetails />} />
           <Route path="/explore" element={<ExploreProperties />} />
           <Route path="/chats" element={<Chats />} />
+          
+          {/* 💡 Help & Support റൂട്ട് ചേർത്തു. ലോഗിൻ ചെയ്ത ആർക്കും ആക്സസ് ചെയ്യാം */}
+          <Route path="/help-support" element={<ProtectedRoute><ComplaintsPage /></ProtectedRoute>} />
+
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><OwnerDashboard /></ProtectedRoute>} />
           <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/edit-property/:id" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><EditProperty /></ProtectedRoute>} />

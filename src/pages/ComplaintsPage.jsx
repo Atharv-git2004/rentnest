@@ -19,10 +19,25 @@ const ComplaintsPage = () => {
     try {
       setLoadingList(true);
       const response = await apiRequest('/complaints', { method: 'GET' });
-      const resData = await response.json();
+      
+      // Safe JSON Parsing (ക്രാഷ് ആവാതിരിക്കാൻ)
+      let resData;
+      try {
+        resData = await response.json();
+      } catch (e) {
+        resData = { message: "Invalid server response format." };
+      }
       
       if (response.ok || resData.success) {
-        setComplaints(resData.data || []);
+        // Data Array ആണെന്ന് ഉറപ്പുവരുത്തുന്നു
+        const dataArray = Array.isArray(resData.data) ? resData.data : [];
+        setComplaints(dataArray);
+      } else if (response.status === 401) {
+        // Token expired / Unauthorized error handling
+        toast.error("Session expired. Please log in again.");
+        setComplaints([]);
+      } else {
+        toast.error(resData.message || "Failed to load your complaints.");
       }
     } catch (error) {
       console.error("Error fetching complaints:", error);
@@ -46,12 +61,18 @@ const ComplaintsPage = () => {
 
     setLoading(true);
     try {
+      // apiRequest തനിയെ JSON ആക്കി മാറ്റുകയും Token വയ്ക്കുകയും ചെയ്യും
       const response = await apiRequest('/complaints', {
         method: 'POST',
         body: { subject, description }
       });
 
-      const resData = await response.json();
+      let resData;
+      try {
+        resData = await response.json();
+      } catch (e) {
+        resData = { message: "Invalid server response format." };
+      }
 
       if (response.ok || resData.success) {
         toast.success('Your complaint has been submitted successfully.');
@@ -60,6 +81,8 @@ const ComplaintsPage = () => {
         
         // സബ്മിറ്റ് ചെയ്ത ഉടനെ ലിസ്റ്റ് അപ്ഡേറ്റ് ചെയ്യാൻ വീണ്ടും ഡാറ്റ വിളിക്കുന്നു
         fetchComplaints(); 
+      } else if (response.status === 401) {
+        toast.error("Unauthorized. Please log in again to submit.");
       } else {
         toast.error(resData.message || 'Failed to submit complaint.');
       }
