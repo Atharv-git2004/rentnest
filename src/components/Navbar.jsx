@@ -30,7 +30,7 @@ const Navbar = () => {
   const getLinkStyle = (path) => 
     location.pathname === path 
       ? 'text-green-600 bg-green-50' 
-      : 'hover:text-green-600 hover:bg-gray-50 md:hover:bg-transparent';
+      : 'hover:text-green-600 hover:bg-gray-50 lg:hover:bg-transparent';
 
   return (
     <>
@@ -38,22 +38,23 @@ const Navbar = () => {
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="sticky top-0 z-50 backdrop-blur-md bg-white/90 border-b border-gray-100 px-4 py-3 shadow-sm"
+        className="sticky top-0 z-50 backdrop-blur-md bg-white/90 border-b border-gray-100 px-4 py-3 shadow-sm w-full"
       >
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl mx-auto flex justify-between items-center w-full gap-2">
           
-          {/* LOGO SECTION */}
-          <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center gap-2 group">
-            <div className="bg-green-600 text-white p-2 rounded-xl shadow-md">
-              <Building2 size={20} />
+          {/* Logo Section */}
+          <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center gap-2 group flex-shrink-0">
+            <div className="bg-green-600 text-white p-1.5 sm:p-2 rounded-xl shadow-md flex-shrink-0">
+              <Building2 size={20} className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="text-xl font-black tracking-tight text-slate-800">
+            <span className="text-lg sm:text-xl font-black tracking-tight text-slate-800">
               Rent<span className="text-green-600">Nest</span>
             </span>
           </Link>
 
-          {/* DESKTOP NAVIGATION */}
-          <div className="hidden md:flex items-center gap-2 text-sm font-semibold text-gray-600">
+          {/* Desktop Navigation */}
+          {/* Updated breakpoint to lg to prevent overflow and overlapping on tablet devices */}
+          <div className="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-gray-600">
             <Link to="/" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/')}`}>
               <HomeIcon size={16} /> <span>Home</span>
             </Link>
@@ -72,7 +73,7 @@ const Navbar = () => {
                   <MessageSquare size={16} /> <span>Chats</span>
                 </Link>
 
-                {/* 💡 Complaints Link (Updated) */}
+                {/* Complaints Link */}
                 {userInfo.role !== 'admin' && (
                   <Link 
                     to="/help-support"
@@ -101,46 +102,46 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* AUTH BUTTONS SECTION & MOBILE TOGGLE */}
-          <div className="flex items-center gap-2 md:gap-3 text-sm font-semibold">
+          {/* Auth Buttons & Mobile Toggle */}
+          <div className="flex items-center gap-2 sm:gap-3 text-sm font-semibold flex-shrink-0">
             {userInfo ? (
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl text-slate-700 font-bold text-xs">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 border border-slate-200 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-slate-700 font-bold text-xs">
                   
                   {userInfo?.picture || userInfo?.avatar ? (
                     <img 
                       src={userInfo.picture || userInfo.avatar} 
                       alt="Profile" 
                       referrerPolicy="no-referrer"
-                      className="w-6 h-6 rounded-full object-cover ring-2 ring-green-100"
+                      className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover ring-2 ring-green-100 flex-shrink-0"
                       onError={(e) => { e.target.src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; }}
                     />
                   ) : (
-                    <User size={14} className="text-slate-500" />
+                    <User size={14} className="text-slate-500 flex-shrink-0" />
                   )}
                   
-                  <span className="max-w-[70px] md:max-w-[100px] truncate">
+                  <span className="max-w-[60px] sm:max-w-[80px] md:max-w-[100px] truncate">
                     {userInfo.name || userInfo.username || 'User'}
                   </span>
-                  <span className="hidden sm:inline-block text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                  <span className="hidden md:inline-block text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                     {userInfo.role || 'user'}
                   </span>
                 </div>
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 md:px-3 rounded-xl transition-colors cursor-pointer text-xs font-bold"
+                  className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 sm:px-3 rounded-xl transition-colors cursor-pointer text-xs font-bold flex-shrink-0"
                 >
                   <LogOut size={14} /> <span className="hidden sm:inline">Logout</span>
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <Link to="/login" className="text-gray-600 hover:text-green-600 transition-colors text-xs font-bold">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Link to="/login" className="text-gray-600 hover:text-green-600 transition-colors text-xs sm:text-sm font-bold">
                   Login
                 </Link>
                 <Link to="/register">
-                  <button className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer">
+                  <button className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-sm cursor-pointer flex-shrink-0">
                     <UserPlus size={14} /> <span className="hidden sm:inline">Sign Up</span>
                   </button>
                 </Link>
@@ -149,14 +150,15 @@ const Navbar = () => {
 
             <button 
               onClick={() => setIsOpen(!isOpen)} 
-              className="p-1.5 text-slate-700 hover:bg-gray-100 rounded-xl md:hidden transition-colors cursor-pointer"
+              className="p-1.5 text-slate-700 hover:bg-gray-100 rounded-xl lg:hidden transition-colors cursor-pointer flex-shrink-0"
+              aria-label="Toggle menu"
             >
-              {isOpen ? <X size={22} /> : <Menu size={22} />}
+              {isOpen ? <X size={20} className="sm:w-6 sm:h-6" /> : <Menu size={20} className="sm:w-6 sm:h-6" />}
             </button>
           </div>
         </div>
 
-        {/* MOBILE DROPDOWN NAVIGATION */}
+        {/* Mobile Dropdown Navigation */}
         <AnimatePresence>
           {isOpen && (
             <motion.div 
@@ -164,7 +166,7 @@ const Navbar = () => {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden overflow-hidden bg-white border-t border-gray-100 mt-3 rounded-2xl flex flex-col gap-1 p-2 text-sm font-bold text-gray-600 shadow-inner"
+              className="lg:hidden overflow-hidden bg-white border-t border-gray-100 mt-3 rounded-2xl flex flex-col gap-1 p-2 text-sm font-bold text-gray-600 shadow-inner w-full"
             >
               <Link to="/" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/')}`}>
                 <HomeIcon size={16} /> <span>Home</span>
@@ -184,7 +186,7 @@ const Navbar = () => {
                     <MessageSquare size={16} /> <span>Chats</span>
                   </Link>
 
-                  {/* 💡 Complaints Link Mobile (Updated) */}
+                  {/* Complaints Link Mobile */}
                   {userInfo.role !== 'admin' && (
                     <Link 
                       to="/help-support"

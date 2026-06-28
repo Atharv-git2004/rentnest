@@ -11,7 +11,7 @@ const ExploreProperties = () => {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
-  // ഫിൽട്ടർ സ്റ്റേറ്റുകൾ
+  // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedType, setSelectedType] = useState('All');
@@ -36,7 +36,7 @@ const ExploreProperties = () => {
     fetchAllProperties();
   }, []);
 
-  // ഫിൽട്ടറിംഗ് ലോജിക് (Search, Type, Location, Price എന്നിവ ഒരുമിച്ച് പ്രവർത്തിക്കും)
+  // Filtering Logic (Synchronizes Search, Type, Location, and Price)
   useEffect(() => {
     let result = properties;
 
@@ -62,7 +62,7 @@ const ExploreProperties = () => {
     setFilteredProperties(result);
   }, [searchQuery, selectedLocation, selectedType, maxPrice, properties]);
 
-  // ഫിൽട്ടറുകൾ എല്ലാം റീസെറ്റ് ചെയ്യാനുള്ള ഫങ്ഷൻ
+  // Function to clear/reset all filter settings
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedLocation('');
@@ -71,34 +71,40 @@ const ExploreProperties = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans selection:bg-green-500 selection:text-white">
+    <div className="min-h-screen bg-gray-50 font-sans selection:bg-green-500 selection:text-white w-full overflow-x-hidden flex flex-col">
       
       {/* --- HEADER SEARCH BANNER --- */}
-      <div className="bg-slate-900 text-white py-12 px-6 border-b border-slate-800">
+      <div className="bg-slate-900 text-white py-8 sm:py-12 px-4 sm:px-6 lg:px-8 border-b border-slate-800 w-full">
         <div className="max-w-7xl mx-auto space-y-6">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Explore Available Homes</h1>
-            <p className="text-slate-400 font-medium mt-1">Find and filter through the best premium rental properties near you.</p>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Explore Available Homes</h1>
+            <p className="text-slate-400 font-medium text-xs sm:text-sm md:text-base mt-1.5 max-w-2xl">
+              Find and filter through the best premium rental properties near you.
+            </p>
           </div>
 
           {/* Search Bar & Filter Toggle Button */}
-          <div className="flex flex-col sm:flex-row gap-4 max-w-3xl">
-            <div className="relative flex-grow">
-              <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-3xl w-full">
+            <div className="relative flex-grow w-full">
+              <Search className="absolute left-4 top-3.5 text-slate-400 pointer-events-none" size={18} />
               <input 
                 type="text"
                 placeholder="Search by title, neighborhood or city..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700/50 rounded-2xl pl-12 pr-4 py-3.5 text-white placeholder-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-green-500 transition-all text-sm md:text-base"
+                className="w-full bg-slate-800 border border-slate-700/50 rounded-2xl pl-11 pr-4 py-3 sm:py-3.5 text-white placeholder-slate-400 font-medium text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-green-500 transition-all shadow-inner"
               />
             </div>
             <motion.button 
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-bold text-sm transition-all shadow-md ${showFilters ? 'bg-green-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50'}`}
+              className={`flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 sm:py-3.5 rounded-2xl font-bold text-sm transition-all shrink-0 shadow-md ${
+                showFilters 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50'
+              }`}
             >
-              <SlidersHorizontal size={18} /> {showFilters ? 'Hide Filters' : 'Filters'}
+              <SlidersHorizontal size={16} /> {showFilters ? 'Hide Filters' : 'Filters'}
             </motion.button>
           </div>
         </div>
@@ -111,61 +117,78 @@ const ExploreProperties = () => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-white border-b border-gray-200 overflow-hidden shadow-sm"
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="bg-white border-b border-gray-200 overflow-hidden shadow-sm w-full"
           >
-            <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 sm:grid-cols-3 gap-6 items-end text-sm font-semibold text-slate-700">
+            <div className="max-w-7xl mx-auto p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 items-end text-sm font-semibold text-slate-700">
               
-              {/* Filter 1: Property Type (Updated from image_6ea848.png) */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-1.5 text-gray-500 font-bold uppercase tracking-wider text-xs"><Building size={14}/> Property Type</label>
-                <select 
-                  value={selectedType} 
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-slate-800 cursor-pointer transition-all"
-                >
-                  <option value="All">All Types</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Villa">Villa</option>
-                  <option value="Independent House">Independent House</option>
-                  <option value="Studio">Studio</option>
-                </select>
+              {/* Filter 1: Property Type */}
+              <div className="space-y-1.5 w-full">
+                <label className="flex items-center gap-1.5 text-gray-500 font-bold uppercase tracking-wider text-xs">
+                  <Building size={14} className="text-gray-400 shrink-0"/> Property Type
+                </label>
+                <div className="relative w-full">
+                  <select 
+                    value={selectedType} 
+                    onChange={(e) => setSelectedType(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-medium text-slate-800 cursor-pointer transition-all appearance-none"
+                  >
+                    <option value="All">All Types</option>
+                    <option value="Apartment">Apartment</option>
+                    <option value="Villa">Villa</option>
+                    <option value="Independent House">Independent House</option>
+                    <option value="Studio">Studio</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               {/* Filter 2: Location */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-1.5 text-gray-500 font-bold uppercase tracking-wider text-xs"><MapPin size={14}/> Location / City</label>
+              <div className="space-y-1.5 w-full">
+                <label className="flex items-center gap-1.5 text-gray-500 font-bold uppercase tracking-wider text-xs">
+                  <MapPin size={14} className="text-gray-400 shrink-0"/> Location / City
+                </label>
                 <input 
                   type="text" 
                   placeholder="e.g. Kakkanad, Kochi"
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-slate-800"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 font-medium text-slate-800 placeholder-gray-400 transition-all"
                 />
               </div>
 
               {/* Filter 3: Max Price Slider */}
-              <div className="space-y-2">
+              <div className="space-y-1.5 w-full sm:col-span-2 lg:col-span-1">
                 <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-gray-400">
-                  <span className="flex items-center gap-1.5 text-gray-500"><DollarSign size={14}/> Max Budget</span>
-                  <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded">₹{maxPrice.toLocaleString('en-IN')}</span>
+                  <span className="flex items-center gap-1.5 text-gray-500">
+                    <DollarSign size={14} className="text-gray-400 shrink-0"/> Max Budget
+                  </span>
+                  <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded font-black">
+                    ₹{maxPrice.toLocaleString('en-IN')}
+                  </span>
                 </div>
-                <input 
-                  type="range" 
-                  min="5000" 
-                  max="150000" 
-                  step="5000"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(Number(e.target.value))}
-                  className="w-full accent-green-600 h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer mt-4"
-                />
+                <div className="pt-2">
+                  <input 
+                    type="range" 
+                    min="5000" 
+                    max="150000" 
+                    step="5000"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(Number(e.target.value))}
+                    className="w-full accent-green-600 h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
               </div>
 
               {/* Reset Controls Button */}
-              <div className="sm:col-span-3 flex justify-end pt-2">
+              <div className="sm:col-span-2 lg:col-span-3 flex justify-end pt-2 w-full">
                 <button 
                   onClick={resetFilters}
-                  className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest bg-gray-50 hover:bg-red-50 px-4 py-2 rounded-xl border border-gray-100"
+                  className="flex items-center justify-center gap-1.5 w-full sm:w-auto text-xs font-bold text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest bg-gray-50 hover:bg-red-50 px-4 py-2.5 rounded-xl border border-gray-100 cursor-pointer"
                 >
                   <X size={14} /> Clear All Filters
                 </button>
@@ -177,28 +200,28 @@ const ExploreProperties = () => {
       </AnimatePresence>
 
       {/* --- PROPERTIES GRID RESULTS --- */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex-grow w-full">
         {/* Results Info */}
-        <div className="mb-8 flex justify-between items-center">
-          <p className="text-slate-500 font-bold text-sm md:text-base">
+        <div className="mb-6 sm:mb-8 flex justify-between items-center">
+          <p className="text-slate-500 font-bold text-xs sm:text-sm md:text-base">
             Showing <span className="text-slate-800 font-black">{filteredProperties.length}</span> verified properties
           </p>
         </div>
 
         {/* Grid or Loader */}
         {loading ? (
-          <div className="flex flex-col justify-center items-center py-24 space-y-4">
+          <div className="flex flex-col justify-center items-center py-20 sm:py-28 space-y-4 w-full">
             <motion.div 
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-              className="w-14 h-14 border-4 border-gray-200 border-t-green-500 rounded-full"
+              className="w-12 h-12 border-4 border-gray-200 border-t-green-500 rounded-full"
             />
-            <p className="text-gray-400 font-semibold animate-pulse">Searching properties...</p>
+            <p className="text-gray-400 font-semibold text-sm animate-pulse">Searching properties...</p>
           </div>
         ) : (
           <motion.div 
             layout
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 w-full"
           >
             {filteredProperties.length > 0 ? (
               filteredProperties.map((property) => (
@@ -208,20 +231,23 @@ const ExploreProperties = () => {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full"
                 >
                   <PropertyCard {...property} id={property._id} />
                 </motion.div>
               ))
             ) : (
-              <div className="col-span-full py-20 text-center bg-white border border-gray-100 rounded-3xl shadow-sm flex flex-col items-center">
+              <div className="col-span-full py-14 sm:py-20 px-4 text-center bg-white border border-gray-100 rounded-2xl sm:rounded-3xl shadow-sm flex flex-col items-center justify-center w-full">
                 <img 
                   src="https://illustrations.popsy.co/amber/home-office.svg" 
-                  alt="No results" 
-                  className="h-56 opacity-60 mb-4"
+                  alt="No results found graphic" 
+                  className="h-40 sm:h-56 max-w-full opacity-60 mb-4 object-contain"
                 />
-                <h3 className="text-slate-800 text-xl font-bold">No matches found</h3>
-                <p className="text-gray-400 text-sm mt-1 max-w-sm">We couldn't find anything matching your exact filter setup. Try clearing some options or loosening your budget criteria.</p>
+                <h3 className="text-slate-800 text-lg sm:text-xl font-bold">No matches found</h3>
+                <p className="text-gray-400 text-xs sm:text-sm mt-1.5 max-w-md mx-auto leading-relaxed">
+                  We couldn't find anything matching your exact filter setup. Try clearing some options or loosening your budget criteria.
+                </p>
               </div>
             )}
           </motion.div>

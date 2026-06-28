@@ -11,15 +11,15 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
-  const [actionLoading, setActionLoading] = useState(null); // ഏത് യൂസറിലാണ് ആക്ഷൻ നടക്കുന്നത് എന്ന് ട്രാക്ക് ചെയ്യാൻ
+  const [actionLoading, setActionLoading] = useState(null); // Track which user is currently undergoing an action
 
-  // 💡 Safe API Response Parser (To prevent unexpected token '<' crash)
+  // Safe API Response Parser (To prevent unexpected token '<' crash)
   const parseResponse = async (res) => {
     const contentType = res.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       return await res.json();
     }
-    await res.text(); // കൺസ്യൂം ചെയ്ത് കളയാൻ
+    await res.text(); // Consume the raw text to clear the body stream
     return { 
       message: res.status === 404 
         ? "API Endpoint not found (404). Please verify your backend API routes." 
@@ -27,7 +27,7 @@ const ManageUsers = () => {
     };
   };
 
-  // 1. ഫെച്ച് ലോജിക് - റൂട്ട് '/admin/users'ലേക്ക് ഫെച്ച് ചെയ്യുന്നു
+  // 1. Fetch Logic - Fetch from '/admin/users' route
   const fetchUsers = useCallback(async () => {
     setError('');
     setLoading(true);
@@ -52,7 +52,7 @@ const ManageUsers = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // 2. സ്റ്റാറ്റസ് മാറ്റുന്നു (Active / Blocked)
+  // 2. Toggle Status (Active / Blocked)
   const handleToggleBlock = async (id, currentStatus) => {
     const newStatus = currentStatus === 'Active' ? 'Blocked' : 'Active';
     setActionLoading(id);
@@ -83,7 +83,7 @@ const ManageUsers = () => {
     }
   };
 
-  // 3. ഡിലീറ്റ് ഫങ്ഷൻ
+  // 3. Delete user function
   const handleDeleteUser = async (id, userName) => {
     if (!window.confirm(`Are you sure you want to permanently delete "${userName}"?`)) return;
 
@@ -110,7 +110,7 @@ const ManageUsers = () => {
     }
   };
 
-  // 4. ഫിൽട്ടർ ലോജിക്
+  // 4. Search and filter logic
   const filteredUsers = users.filter((user) => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return true;
@@ -122,26 +122,26 @@ const ManageUsers = () => {
   });
 
   return (
-    <div className="p-6 max-w-7xl mx-auto min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto min-h-screen">
       
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
+        <div className="w-full md:w-auto">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
             <Users className="text-green-600" size={28} />
             Manage Users
           </h2>
-          <p className="text-sm text-gray-500 font-medium mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1 md:mt-2">
             View registered users, manage account status, or remove members from the platform.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">
           {/* Refresh Button */}
           <button
             onClick={fetchUsers}
             disabled={loading}
-            className="p-2.5 bg-white border border-gray-200 text-gray-600 hover:text-green-600 hover:border-green-300 rounded-xl shadow-sm transition-all flex items-center justify-center disabled:opacity-50"
+            className="p-2 sm:p-2.5 bg-white border border-gray-200 text-gray-600 hover:text-green-600 hover:border-green-300 rounded-xl shadow-sm transition-all flex items-center justify-center disabled:opacity-50 shrink-0"
             title="Refresh List"
           >
             <RefreshCw size={18} className={loading ? "animate-spin text-green-600" : ""} />
@@ -149,13 +149,13 @@ const ManageUsers = () => {
 
           {/* Search Input */}
           <div className="relative flex-1 md:w-72">
-            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-2.5 sm:top-3 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Search by name, email, or role..."
+              placeholder="Search by name, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all shadow-sm"
+              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all shadow-sm"
             />
           </div>
         </div>
@@ -167,15 +167,15 @@ const ManageUsers = () => {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="mb-6 flex items-center justify-between bg-red-50 text-red-700 p-4 rounded-xl text-sm font-semibold border border-red-200 shadow-sm"
+            className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-red-50 text-red-700 p-3 sm:p-4 rounded-xl text-sm font-semibold border border-red-200 shadow-sm"
           >
-            <div className="flex items-center gap-2.5">
-              <AlertCircle size={18} className="text-red-600 flex-shrink-0" /> 
-              <span>{error}</span>
+            <div className="flex items-start sm:items-center gap-2.5">
+              <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5 sm:mt-0" /> 
+              <span className="leading-tight">{error}</span>
             </div>
             <button 
               onClick={fetchUsers}
-              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm self-end sm:self-auto shrink-0"
             >
               Retry
             </button>
@@ -185,23 +185,23 @@ const ManageUsers = () => {
 
       {/* Content Table */}
       {loading ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 flex flex-col items-center justify-center gap-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-12 flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm text-gray-500 font-medium">Fetching users data...</p>
         </div>
       ) : (
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full"
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left border-collapse min-w-[600px]">
               <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 font-bold border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4">User Details</th>
-                  <th className="px-6 py-4">Role</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">User Details</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">Role</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">Status</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 text-sm">
@@ -216,25 +216,26 @@ const ManageUsers = () => {
                         className={`hover:bg-slate-50/70 transition-colors ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
                       >
                         {/* User details */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-3 sm:py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-slate-100 text-slate-700 font-bold rounded-xl flex items-center justify-center border border-slate-200 uppercase flex-shrink-0">
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 text-slate-700 font-bold rounded-xl flex items-center justify-center border border-slate-200 uppercase flex-shrink-0">
                               {user.name ? user.name.charAt(0) : <User size={18} />}
                             </div>
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-bold text-slate-800 text-base">
+                            <div className="flex flex-col gap-0.5 min-w-[120px] max-w-[200px] sm:max-w-xs md:max-w-sm overflow-hidden">
+                              <span className="font-bold text-slate-800 text-sm sm:text-base truncate">
                                 {user.name || 'Unavailable'}
                               </span>
-                              <span className="text-xs text-gray-500 flex items-center gap-1 font-medium">
-                                <Mail size={12} /> {user.email || 'N/A'}
+                              <span className="text-[11px] sm:text-xs text-gray-500 flex items-center gap-1 font-medium truncate">
+                                <Mail size={12} className="flex-shrink-0" /> 
+                                <span className="truncate">{user.email || 'N/A'}</span>
                               </span>
                             </div>
                           </div>
                         </td>
 
                         {/* Role */}
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 sm:px-2.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
                             user.role === 'admin' 
                               ? 'bg-purple-100 text-purple-700 border border-purple-200' 
                               : user.role === 'owner' 
@@ -246,11 +247,11 @@ const ManageUsers = () => {
                         </td>
 
                         {/* Status Button */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleBlock(user._id, user.status || 'Active')}
                             disabled={user.role === 'admin'}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1.5 ${
                               user.role === 'admin'
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isActive
@@ -258,24 +259,24 @@ const ManageUsers = () => {
                                 : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
                             }`}
                           >
-                            {isActive ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                            {isActive ? <CheckCircle size={14} className="flex-shrink-0" /> : <XCircle size={14} className="flex-shrink-0" />}
                             {isActive ? 'Active' : 'Blocked'}
                           </button>
                         </td>
 
                         {/* Actions */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-center whitespace-nowrap">
                           <button
                             onClick={() => handleDeleteUser(user._id, user.name || 'User')}
                             disabled={user.role === 'admin'}
-                            className={`p-2 rounded-xl transition-all ${
+                            className={`p-1.5 sm:p-2 rounded-xl transition-all ${
                               user.role === 'admin' 
                                 ? 'text-gray-300 cursor-not-allowed' 
                                 : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                             }`}
                             title="Delete User"
                           >
-                            <Trash2 size={18} />
+                            <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                         </td>
                       </tr>
@@ -283,7 +284,7 @@ const ManageUsers = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-gray-500 font-medium">
+                    <td colSpan="4" className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500 font-medium text-sm">
                       {searchTerm ? "No users found matching your search." : "No registered users found."}
                     </td>
                   </tr>

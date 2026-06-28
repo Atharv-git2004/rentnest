@@ -7,7 +7,7 @@ import {
 import EmojiPicker from 'emoji-picker-react';
 import { apiRequest } from '../services/api';
 
-// 🎵 Custom Audio Player Component
+// Custom Audio Player Component
 const AudioMessage = React.memo(({ fileUrl, getMediaUrl, durationProp }) => {
   const [duration, setDuration] = useState(durationProp || 0);
   const audioRef = useRef(null);
@@ -36,13 +36,13 @@ const AudioMessage = React.memo(({ fileUrl, getMediaUrl, durationProp }) => {
   }, []);
 
   return (
-    <div className="pt-1 pb-1 pr-2 flex flex-col">
+    <div className="pt-1 pb-1 pr-1 sm:pr-2 flex flex-col w-full max-w-full overflow-hidden">
       <audio 
         ref={audioRef}
         controls 
         preload="metadata"
         onLoadedMetadata={handleLoadedMetadata}
-        className="max-w-[200px] sm:max-w-[250px] h-[40px] outline-none"
+        className="w-full max-w-[180px] xs:max-w-[210px] sm:max-w-[250px] h-[40px] outline-none"
       >
         <source src={getMediaUrl(fileUrl)} />
         Your browser does not support the audio element.
@@ -420,12 +420,13 @@ const ChatWindow = ({
 
   if (!activeChat) {
     return (
-      <div className={`hidden md:flex flex-col flex-1 h-full items-center justify-center ${theme.panelBg}`}>
-        <div className="text-center space-y-3 opacity-60">
-          <div className="w-16 h-16 bg-[#202c33] rounded-full flex items-center justify-center mx-auto text-[#00a884]">
+      <div className={`hidden md:flex flex-col flex-1 h-full items-center justify-center p-6 ${theme.panelBg}`}>
+        <div className="text-center space-y-4 max-w-sm opacity-60">
+          <div className="w-16 h-16 bg-[#202c33] rounded-full flex items-center justify-center mx-auto text-[#00a884] shadow-sm">
             <Smile size={32} />
           </div>
-          <h3 className={`text-xl font-medium ${theme.textPrimary}`}>Select a chat to start messaging</h3>
+          <h3 className={`text-xl font-semibold tracking-wide ${theme.textPrimary}`}>Select a chat to start messaging</h3>
+          <p className={`text-sm ${theme.textSecondary}`}>Choose a contact from your list to begin a secure, responsive real-time conversation.</p>
         </div>
       </div>
     );
@@ -433,100 +434,116 @@ const ChatWindow = ({
 
   return (
     <div className={`flex flex-col flex-1 h-full max-h-full min-w-0 overflow-hidden ${theme.panelBg} relative`} onClick={() => messageMenuOpen && setMessageMenuOpen(null)}>
-      {/* MAIN FIX: Added max-h-full and overflow-hidden to constrain height, ensuring proper scroll behavior */}
       
-      {/* 1. Fixed Header Layout: Added w-full and z-20. Due to outer overflow-hidden, it remains perfectly fixed */}
-      <div className={`flex items-center justify-between w-full px-3 sm:px-4 py-2.5 ${theme.headerBg} z-20 shadow-sm flex-none`}> 
+      {/* 1. Header Layout */}
+      <div className={`flex items-center justify-between w-full px-3 sm:px-4 py-2.5 ${theme.headerBg} z-20 shadow-sm flex-none border-b ${theme.border || 'border-gray-100/10'}`}> 
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-          <button onClick={() => setActiveChat(null)} className={`md:hidden p-1 sm:-ml-2 shrink-0 ${theme.iconColor} ${theme.hover} rounded-full`}>
-            <ArrowLeft size={24} />
+          <button onClick={() => setActiveChat(null)} className={`md:hidden p-1.5 -ml-1 shrink-0 ${theme.iconColor} ${theme.hover} rounded-full transition-colors`} aria-label="Go Back">
+            <ArrowLeft size={22} />
           </button>
-          <div className="w-10 h-10 bg-[#6b7c85] text-[#e9edef] rounded-full flex items-center justify-center font-bold uppercase shrink-0 overflow-hidden">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#6b7c85] text-[#e9edef] rounded-full flex items-center justify-center font-bold uppercase shrink-0 overflow-hidden shadow-inner">
             {activeChat.avatar ? <img src={activeChat.avatar} alt="Avatar" className="w-full h-full object-cover" /> : (activeChat.name ? activeChat.name.charAt(0) : 'U')}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className={`text-[16px] ${theme.textPrimary} font-medium truncate`}>{activeChat.name || 'User'}</h3>
-            <p className={`text-[13px] ${theme.textSecondary} truncate`}>Online</p>
+            <h3 className={`text-[15px] sm:text-[16px] ${theme.textPrimary} font-semibold truncate`}>{activeChat.name || 'User'}</h3>
+            <p className={`text-[12px] sm:text-[13px] ${theme.textSecondary} truncate text-green-500 font-medium`}>Online</p>
           </div>
         </div>
         
         <div className={`flex items-center gap-1 sm:gap-2 shrink-0 ${theme.iconColor}`}>
-          <button onClick={() => handleStartCall('video')} className={`p-2 ${theme.iconHover} rounded-full transition-colors`} title="Video Call">
-            <Video size={20} />
+          <button onClick={() => handleStartCall('video')} className={`p-2 ${theme.iconHover || 'hover:bg-black/5'} rounded-full transition-all active:scale-95`} title="Video Call">
+            <Video size={20} className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button onClick={() => handleStartCall('audio')} className={`p-2 ${theme.iconHover} rounded-full transition-colors`} title="Audio Call">
-            <Phone size={20} />
+          <button onClick={() => handleStartCall('audio')} className={`p-2 ${theme.iconHover || 'hover:bg-black/5'} rounded-full transition-all active:scale-95`} title="Audio Call">
+            <Phone size={19} className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button onClick={() => setIsDarkMode(prev => !prev)} className={`p-2 ${theme.iconHover} rounded-full transition-colors`} title="Toggle Theme">
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <button onClick={() => setIsDarkMode(prev => !prev)} className={`p-2 ${theme.iconHover || 'hover:bg-black/5'} rounded-full transition-all active:scale-95`} title="Toggle Theme">
+            {isDarkMode ? <Sun size={20} className="w-4 h-4 sm:w-5 sm:h-5" /> : <Moon size={20} className="w-4 h-4 sm:w-5 sm:h-5" />}
           </button>
         </div>
       </div>
 
-      {/* 2. Scrollable Message List: flex-1 takes remaining height, overflow-y-auto enables internal scroll */}
-      <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${theme.chatBg} space-y-3 relative scroll-smooth`} onClick={() => showEmojiPicker && setShowEmojiPicker(false)}>
+      {/* 2. Scrollable Message List */}
+      <div className={`flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 ${theme.chatBg} space-y-3 relative scroll-smooth overflow-x-hidden`} onClick={() => showEmojiPicker && setShowEmojiPicker(false)}>
         {currentMessages.map((msg, index) => {
           const isMyMessage = getUserId(msg.senderId || msg.sender) === currentUserId;
           const tickColor = msg.status === 'read' ? 'text-[#53bdeb]' : 'text-[#8696a0]';
           
           return (
-            <div key={msg._id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-1 relative group`}>
-              <div className={`max-w-[85%] sm:max-w-[70%] min-w-[100px] relative px-3 pt-1.5 pb-5 text-[15px] shadow-sm break-words flex flex-col ${isMyMessage ? `${theme.msgMine} rounded-xl rounded-tr-none` : `${theme.msgOther} rounded-xl rounded-tl-none`}`}>
+            <div key={msg._id || index} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} w-full relative group`}>
+              <div className={`max-w-[88%] sm:max-w-[75%] md:max-w-[70%] min-w-[110px] relative px-3 pt-2 pb-6 text-[14px] sm:text-[15px] shadow-sm break-words flex flex-col ${isMyMessage ? `${theme.msgMine} rounded-2xl rounded-tr-none` : `${theme.msgOther} rounded-2xl rounded-tl-none`}`}>
+                
                 {isMyMessage && !msg.isDeleted && msg.status !== 'sending' && (
-                  <div className="absolute top-1.5 right-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full bg-black/10 z-10" onClick={(e) => { e.stopPropagation(); setMessageMenuOpen(msg._id); }}>
-                    <ChevronDown size={16} className="opacity-80" />
+                  <div className="absolute top-1.5 right-1.5 cursor-pointer md:opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full bg-black/5 z-10" onClick={(e) => { e.stopPropagation(); setMessageMenuOpen(msg._id); }}>
+                    <ChevronDown size={15} className="opacity-70 hover:opacity-100" />
                   </div>
                 )}
+
                 {messageMenuOpen === msg._id && (
-                  <div className={`absolute top-6 right-2 w-32 ${isDarkMode ? 'bg-[#233138] text-white' : 'bg-white text-black'} rounded-md py-1 z-50 shadow-lg border ${theme.border}`}>
+                  <div className={`absolute top-7 right-2 w-32 ${isDarkMode ? 'bg-[#233138] text-white' : 'bg-white text-black'} rounded-xl py-1 z-50 shadow-xl border ${theme.border || 'border-gray-200'} overflow-hidden`}>
                     {msg.messageType === 'text' && (
-                       <button className="w-full text-left px-4 py-2 hover:bg-black/10 flex items-center gap-2" onClick={() => handleStartEdit(msg)}><Edit2 size={14} /> Edit</button>
+                       <button className="w-full text-left px-3.5 py-2 hover:bg-black/10 text-xs sm:text-sm flex items-center gap-2 transition-colors" onClick={() => handleStartEdit(msg)}>
+                         <Edit2 size={13} /> Edit
+                       </button>
                     )}
-                    <button className="w-full text-left px-4 py-2 hover:bg-black/10 text-red-500 flex items-center gap-2" onClick={() => handleDeleteMessage(msg._id)}><Trash2 size={14} /> Delete</button>
+                    <button className="w-full text-left px-3.5 py-2 hover:bg-black/10 text-xs sm:text-sm text-red-500 flex items-center gap-2 transition-colors" onClick={() => handleDeleteMessage(msg._id)}>
+                      <Trash2 size={13} /> Delete
+                    </button>
                   </div>
                 )}
+
                 {msg.isDeleted || msg.text === "This message was deleted" ? (
-                   <div className="flex items-center gap-1.5 opacity-60 italic text-[14.5px] pr-2 pt-0.5 text-gray-500"><Ban size={15} /> This message was deleted</div>
+                   <div className="flex items-center gap-1.5 opacity-60 italic text-[13.5px] sm:text-[14.5px] pr-2 py-0.5 text-gray-500">
+                     <Ban size={14} /> This message was deleted
+                   </div>
                 ) : (msg.messageType === 'call' || msg.callDetails?.callType) ? (
-                  <div className="flex items-center gap-3 pr-4 pb-1 mt-1">
-                    <div className={`p-3 rounded-full ${isMyMessage ? 'bg-black/10' : 'bg-gray-500/10'}`}>
-                      {msg.callDetails?.callType === 'video' ? <Video size={20} /> : <Phone size={20} />}
+                  <div className="flex items-center gap-3 pr-2 pb-1 mt-0.5 w-full">
+                    <div className={`p-2.5 rounded-full shrink-0 ${isMyMessage ? 'bg-black/10' : 'bg-gray-500/10'}`}>
+                      {msg.callDetails?.callType === 'video' ? <Video size={18} /> : <Phone size={18} />}
                     </div>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-[15px]">{msg.callDetails?.callType === 'video' ? 'Video Call' : 'Audio Call'}</span>
-                      <span className="text-[12px] opacity-80 flex items-center gap-1 mt-0.5">
-                        {msg.callDetails?.duration > 0 ? <><Clock size={12} /> {msg.callDetails.duration}s</> : <><PhoneMissed size={12} className="text-red-500" /> Missed Call</>}
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-sm sm:text-[15px] truncate">{msg.callDetails?.callType === 'video' ? 'Video Call' : 'Audio Call'}</span>
+                      <span className="text-[11px] sm:text-[12px] opacity-80 flex items-center gap-1 mt-0.5 truncate">
+                        {msg.callDetails?.duration > 0 ? <><Clock size={11} /> {msg.callDetails.duration}s</> : <><PhoneMissed size={11} className="text-red-500" /> Missed Call</>}
                       </span>
                     </div>
                   </div>
                 ) : msg.messageType === 'audio' ? (
                   <AudioMessage fileUrl={msg.fileUrl} getMediaUrl={getMediaUrl} durationProp={msg.audioDuration} />
                 ) : msg.messageType === 'video' ? (
-                  <div className="pb-2 pt-1 pr-3">
-                     <video controls className="rounded-md max-w-full h-auto max-h-[250px] outline-none bg-black/20"><source src={getMediaUrl(msg.fileUrl)} /></video>
+                  <div className="pb-1 pt-0.5 max-w-full">
+                     <video controls className="rounded-xl w-full h-auto max-h-[200px] sm:max-h-[250px] outline-none bg-black/10 shadow-sm">
+                       <source src={getMediaUrl(msg.fileUrl)} />
+                     </video>
                   </div>
                 ) : msg.messageType === 'image' ? (
-                  <div className="pb-2 pt-1 pr-3">
-                     <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer"><img src={getMediaUrl(msg.fileUrl)} alt="Uploaded" className="rounded-md max-w-full h-auto max-h-[250px] object-cover cursor-pointer hover:opacity-90" /></a>
+                  <div className="pb-1 pt-0.5 max-w-full">
+                     <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl">
+                       <img src={getMediaUrl(msg.fileUrl)} alt="Uploaded content" className="rounded-xl w-full h-auto max-h-[200px] sm:max-h-[250px] object-cover cursor-pointer hover:scale-[1.02] transition-transform duration-200 bg-black/5" />
+                     </a>
                   </div>
                 ) : msg.messageType === 'pdf' || msg.messageType === 'file' ? (
-                  <div className="pb-2 pt-1 flex items-center gap-2 pr-3">
-                    <div className="p-2.5 bg-black/10 rounded-lg text-red-500"><FileText size={22} /></div>
-                    <div className="flex flex-col min-w-0 pr-4">
-                      <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold underline truncate">{msg.fileUrl?.split('/').pop() || 'Document'}</a>
-                      <span className="text-[10px] uppercase opacity-60">Document</span>
+                  <div className="pb-1 pt-0.5 flex items-center gap-2.5 max-w-full overflow-hidden">
+                    <div className="p-2 bg-red-500/10 text-red-500 rounded-xl shrink-0"><FileText size={22} /></div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <a href={getMediaUrl(msg.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-semibold underline truncate hover:text-[#00a884] transition-colors">
+                        {msg.fileUrl?.split('/').pop() || 'Document'}
+                      </a>
+                      <span className="text-[10px] uppercase opacity-60 font-medium tracking-wider mt-0.5">Document</span>
                     </div>
                   </div>
                 ) : (
-                  <div className={`whitespace-pre-wrap leading-relaxed pr-3 ${msg.isEdited ? 'pr-8' : ''}`}>{msg.text}</div>
+                  <div className={`whitespace-pre-wrap leading-relaxed pr-2 break-words text-justify ${msg.isEdited ? 'pr-7' : ''}`}>{msg.text}</div>
                 )}
-                <div className={`text-[10.5px] ${theme.textSecondary} flex items-center gap-1 absolute bottom-1 right-2 select-none`}>
+
+                <div className={`text-[10px] ${theme.textSecondary} flex items-center gap-1 absolute bottom-1 right-2 select-none font-medium opacity-80`}>
                   {msg.isEdited && !msg.isDeleted && <span className="italic opacity-70 mr-0.5">edited</span>}
                   <span>{msg.time || formatTime(msg.createdAt)}</span>
                   {isMyMessage && !msg.isDeleted && (
-                    msg.status === 'sending' ? <Clock size={12} className="text-gray-400 animate-spin" /> : <CheckCheck size={15} className={tickColor} />
+                    msg.status === 'sending' ? <Clock size={11} className="text-gray-400 animate-spin" /> : <CheckCheck size={14} className={tickColor} />
                   )}
                 </div>
+
               </div>
             </div>
           );
@@ -534,54 +551,74 @@ const ChatWindow = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Emoji Picker Layout Guard */}
       {showEmojiPicker && (
-        <div className="absolute bottom-[80px] left-4 z-50 shadow-xl">
-          <EmojiPicker onEmojiClick={onEmojiClick} theme={isDarkMode ? 'dark' : 'light'} lazyLoadEmojis={true} />
+        <div className="absolute bottom-[75px] left-2 right-2 sm:left-4 sm:right-auto z-50 shadow-2xl max-w-[calc(100vw-16px)] sm:max-w-none overflow-hidden rounded-xl">
+          <EmojiPicker onEmojiClick={onEmojiClick} theme={isDarkMode ? 'dark' : 'light'} lazyLoadEmojis={true} width="100%" height={320} />
         </div>
       )}
 
       <input type="file" hidden ref={fileInputRef} onChange={handleFileSelect} accept="image/*,video/*,application/pdf" />
 
+      {/* Editing State Header */}
       {editingMessage && (
-         <div className={`px-4 py-2.5 flex items-center justify-between border-t ${theme.border} ${theme.headerBg} shadow-inner flex-none w-full z-10`}>
-            <div className="flex flex-col flex-1 min-w-0 border-l-4 border-[#00a884] pl-2">
-               <span className={`text-[13px] font-bold text-[#00a884]`}>Edit Message</span>
-               <span className={`text-[14px] ${theme.textSecondary} truncate w-full`}>{editingMessage.text}</span>
+         <div className={`px-4 py-2 flex items-center justify-between border-t ${theme.border || 'border-gray-100/10'} ${theme.headerBg} shadow-inner flex-none w-full z-10 animate-fade-in`}>
+            <div className="flex flex-col flex-1 min-w-0 border-l-4 border-[#00a884] pl-3">
+               <span className="text-[12px] sm:text-[13px] font-bold text-[#00a884] tracking-wide">Edit Message</span>
+               <span className={`text-[13px] sm:text-[14px] ${theme.textSecondary} truncate w-full mt-0.5`}>{editingMessage.text}</span>
             </div>
-            <button onClick={handleCancelEdit} className={`p-1.5 rounded-full ${theme.hover} text-red-400`}><X size={20}/></button>
+            <button onClick={handleCancelEdit} className={`p-1.5 rounded-full ${theme.hover || 'hover:bg-black/5'} text-red-400 shrink-0 ml-2 transition-colors`} aria-label="Cancel editing">
+              <X size={18} />
+            </button>
          </div>
       )}
 
-      <form onSubmit={handleSendMessage} className={`flex-none w-full px-2 sm:px-4 py-3 ${theme.inputBar} flex items-center gap-2 sm:gap-3 z-10`}>
+      {/* Input Action Form Bar */}
+      <form onSubmit={handleSendMessage} className={`flex-none w-full px-2 sm:px-4 py-3 ${theme.inputBar || 'bg-white'} flex items-center gap-1.5 sm:gap-3 z-10 border-t ${theme.border || 'border-gray-100/10'}`}>
         {!isRecording && (
           <>
-            {showEmojiPicker ? (
-              <X size={26} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => setShowEmojiPicker(false)} />
-            ) : (
-              <Smile size={26} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => setShowEmojiPicker(true)} />
-            )
-            }
-            <Paperclip size={24} className={`${theme.iconColor} cursor-pointer shrink-0 p-0.5 hover:bg-black/10 rounded-full`} onClick={() => fileInputRef.current.click()} />
-            <input type="text" placeholder="Type a message" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className={`flex-1 min-w-0 ${theme.inputBg} ${theme.textPrimary} px-4 py-2.5 rounded-lg outline-none text-[15px] shadow-sm`} />
+            <button type="button" className="shrink-0 p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors" onClick={() => setShowEmojiPicker(prev => !prev)} aria-label="Toggle Emoji Picker">
+              {showEmojiPicker ? (
+                <X size={24} className={`${theme.iconColor} shrink-0`} />
+              ) : (
+                <Smile size={24} className={`${theme.iconColor} shrink-0`} />
+              )}
+            </button>
+            
+            <button type="button" className="shrink-0 p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors" onClick={() => fileInputRef.current.click()} aria-label="Attach File">
+              <Paperclip size={22} className={`${theme.iconColor} shrink-0`} />
+            </button>
+            
+            <input 
+              type="text" 
+              placeholder="Type a message" 
+              value={newMessage} 
+              onChange={(e) => setNewMessage(e.target.value)} 
+              className={`flex-1 min-w-0 ${theme.inputBg || 'bg-gray-100'} ${theme.textPrimary} px-3.5 sm:px-4 py-2 rounded-xl outline-none text-sm sm:text-[15px] shadow-inner border border-transparent focus:border-[#00a884]/20 transition-all`} 
+            />
           </>
         )}
 
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between bg-red-100 text-red-600 px-4 py-2 rounded-full w-full animate-pulse">
+          <div className="flex-1 flex items-center justify-between bg-red-50 text-red-600 px-3.5 sm:px-4 py-2 rounded-xl w-full animate-pulse border border-red-200">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
-              <span className="text-sm font-bold">{recordingTime}s</span>
+              <span className="w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
+              <span className="text-xs sm:text-sm font-bold tracking-wider">{recordingTime}s</span>
             </div>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={cancelRecording} className="p-2 bg-white hover:bg-gray-200 rounded-full text-red-500 transition-colors shadow-sm"><X size={18} /></button>
-              <button type="button" onClick={sendRecording} className="p-2 bg-[#00a884] hover:bg-[#029173] rounded-full text-white transition-colors shadow-sm"><Send size={18} className="ml-0.5" /></button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button type="button" onClick={cancelRecording} className="p-1.5 bg-white hover:bg-gray-100 rounded-full text-red-500 transition-colors shadow-sm" title="Cancel Recording"><X size={16} /></button>
+              <button type="button" onClick={sendRecording} className="p-1.5 bg-[#00a884] hover:bg-[#029173] rounded-full text-white transition-colors shadow-sm" title="Send Recording"><Send size={16} className="ml-0.5" /></button>
             </div>
           </div>
         ) : (
           newMessage.trim() ? (
-            <button type="submit" className="p-2.5 bg-[#00a884] text-white rounded-full hover:bg-[#029173] transition-colors shrink-0 shadow-md"><Send size={20} className="ml-0.5" /></button>
+            <button type="submit" className="p-2 sm:p-2.5 bg-[#00a884] text-white rounded-xl hover:bg-[#029173] active:scale-95 transition-all shrink-0 shadow-md flex items-center justify-center" aria-label="Send Message">
+              <Send size={18} className="ml-0.5" />
+            </button>
           ) : (
-            <button type="button" className={`p-2.5 rounded-full ${theme.iconHover} shrink-0 transition-colors`} onClick={startRecording}><Mic size={24} className={theme.iconColor} /></button>
+            <button type="button" className={`p-2 sm:p-2.5 rounded-xl ${theme.iconHover || 'hover:bg-black/5'} shrink-0 active:scale-95 transition-all flex items-center justify-center`} onClick={startRecording} aria-label="Voice Record">
+              <Mic size={22} className={theme.iconColor} />
+            </button>
           )
         )}
       </form>

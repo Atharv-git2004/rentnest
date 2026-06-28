@@ -8,13 +8,13 @@ import {
 const AdminSidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen }) => {
   const navigate = useNavigate();
 
-  // Logout ഫങ്ഷൻ
+  // Logout function
   const handleLogout = () => {
     localStorage.removeItem('userInfo');
     navigate('/login');
   };
 
-  // സൈഡ്ബാർ മെനു ലിസ്റ്റ് (inquiries മാറ്റി complaints ആക്കി)
+  // Sidebar menu list (inquiries updated to complaints)
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={20} /> },
     { id: 'users', label: 'Manage Users', icon: <Users size={20} /> },
@@ -27,8 +27,9 @@ const AdminSidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen
       {/* --- SIDEBAR CONTAINER --- */}
       <div className={`
         fixed inset-y-0 left-0 z-50 bg-slate-900 text-slate-300 w-64 p-5 flex flex-col justify-between
-        transform transition-transform duration-300 ease-in-out lg:relative lg:transform-none
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        transform transition-transform duration-300 ease-in-out h-[100dvh] overflow-y-auto
+        lg:sticky lg:top-0 lg:h-screen lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
       `}>
         <div>
           {/* Logo & Header Section */}
@@ -44,50 +45,52 @@ const AdminSidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen
             {/* Mobile Close Button */}
             <button 
               onClick={() => setIsSidebarOpen(false)} 
-              className="lg:hidden text-slate-400 hover:text-white transition-colors"
+              className="lg:hidden text-slate-400 hover:text-white transition-colors p-1"
+              aria-label="Close sidebar"
             >
               <X size={20} />
             </button>
           </div>
 
           {/* Navigation Items */}
-          <nav className="space-y-1">
+          <nav className="space-y-1.5">
             {menuItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
                   setActiveTab(item.id);
-                  if (window.innerWidth < 1024) setIsSidebarOpen(false); // മൊബൈലിൽ ടാബ് മാറുമ്പോൾ സൈഡ്ബാർ ക്ലോസ് ആകും
+                  // Close sidebar on mobile devices when a tab is selected
+                  if (window.innerWidth < 1024) setIsSidebarOpen(false); 
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
                   activeTab === item.id 
-                    ? 'bg-green-600 text-white shadow-lg shadow-green-600/10' 
+                    ? 'bg-green-600 text-white shadow-lg shadow-green-600/20' 
                     : 'hover:bg-slate-800/60 hover:text-white'
                 }`}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <div className="shrink-0">{item.icon}</div>
+                <span className="truncate">{item.label}</span>
               </button>
             ))}
           </nav>
         </div>
 
         {/* Sidebar Footer Section (Bottom Links) */}
-        <div className="space-y-2 border-t border-slate-800 pt-4">
+        <div className="space-y-2 border-t border-slate-800 pt-5 mt-8">
           <button 
             onClick={() => navigate('/')}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
           >
-            <Home size={16} />
-            <span>Go to Homepage</span>
+            <Home size={16} className="shrink-0" />
+            <span className="truncate">Go to Homepage</span>
           </button>
           
           <button 
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all"
           >
-            <LogOut size={16} />
-            <span>Sign Out</span>
+            <LogOut size={16} className="shrink-0" />
+            <span className="truncate">Sign Out</span>
           </button>
         </div>
       </div>
@@ -96,7 +99,8 @@ const AdminSidebar = ({ activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/40 z-40 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          aria-hidden="true"
         />
       )}
     </>

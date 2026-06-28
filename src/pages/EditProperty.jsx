@@ -2,16 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Building2, MapPin, IndianRupee, Home, Info, ArrowLeft, Save, X } from 'lucide-react';
-// 💡 നിങ്ങളുടെ പ്രോജക്റ്റിൽ custom axios instance ഉണ്ടെങ്കിൽ (ഉദാഹരണത്തിന്: import axios from '../utils/api') അത് ഇവിടെ നൽകുക. 
-// അല്ലെങ്കിൽ താഴെയുള്ളത് ഉപയോഗിക്കാം.
-import axios from 'axios';
 import toast from 'react-hot-toast';
+
+// 💡 Importing your custom api wrapper here
+import { apiRequest } from '../services/api';
 
 const EditProperty = () => {
   const { id } = useParams(); 
   const navigate = useNavigate();
 
-  // ഫോമിലെ ഡാറ്റ സൂക്ഷിക്കാൻ
   const [formData, setFormData] = useState({
     title: '',
     location: '',
@@ -25,45 +24,39 @@ const EditProperty = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // ബാക്ക്-എൻഡിൽ നിന്ന് നിലവിലുള്ള പ്രോപ്പർട്ടി ഡീറ്റെയിൽസ് എടുക്കുന്നു
   useEffect(() => {
     const fetchPropertyDetails = async () => {
       try {
-        const localUser = JSON.parse(localStorage.getItem('userInfo'));
-        const token = localUser?.token;
+        // Fetch data using api.js (it automatically handles tokens)
+        const response = await apiRequest(`properties/${id}`, {
+          method: 'GET'
+        });
 
-        const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-        
-        // 💡 Vercel-ൽ ഹോസ്റ്റ് ചെയ്യുമ്പോൾ Backend URL കിട്ടാൻ. (ഇതില്ലെങ്കിൽ Vercel-ൽ 404 വരാം)
-        // നിങ്ങളുടെ ബാക്ക്-എൻഡ് URL 'https://rentnest-backend...' പോലെ ആണെങ്കിൽ അത് VITE_API_URL ആയി .env യിൽ സെറ്റ് ചെയ്യണം.
-        const baseURL = import.meta.env.VITE_API_URL || '';
+        const data = await response.json();
+        console.log("🔥 Backend Response:", data); // For debugging
 
-        // സിംഗിൾ പ്രോപ്പർട്ടി API കാൾ
-        const { data } = await axios.get(`${baseURL}/api/properties/${id}`, config);
-        
-        // 💡 പരിശോധിക്കാൻ വേണ്ടി: ബ്രൗസറിൽ Right Click -> Inspect -> Console എടുത്തു നോക്കുക
-        console.log("Backend Response:", data); 
+        if (response.ok) {
+          const propertyData = data.property || data.data || data;
 
-        // ബാക്ക്-എൻഡ് ഏത് രീതിയിൽ ഡാറ്റ അയച്ചാലും അത് വർക്ക് ആവാൻ:
-        const propertyData = data.property || data.data || data;
-
-        if (propertyData && propertyData.title) {
-          setFormData({
-            title: propertyData.title || '',
-            location: propertyData.location || '',
-            price: propertyData.price || '',
-            type: propertyData.type || 'Apartment',
-            bedrooms: propertyData.bedrooms || '',
-            bathrooms: propertyData.bathrooms || '',
-            description: propertyData.description || '',
-          });
+          if (propertyData && propertyData.title) {
+            setFormData({
+              title: propertyData.title || '',
+              location: propertyData.location || '',
+              price: propertyData.price || '',
+              type: propertyData.type || 'Apartment',
+              bedrooms: propertyData.bedrooms || '',
+              bathrooms: propertyData.bathrooms || '',
+              description: propertyData.description || '',
+            });
+          } else {
+            toast.error("Property data format is incorrect.");
+          }
         } else {
-          toast.error("Property data format is incorrect.");
+          toast.error(data.message || 'Failed to load property details');
         }
       } catch (error) {
         console.error("Fetch error:", error);
-        toast.error(error.response?.data?.message || 'Failed to load property details');
-        navigate('/dashboard'); 
+        toast.error('Failed to load property details');
       } finally {
         setIsLoading(false);
       }
@@ -72,49 +65,35 @@ const EditProperty = () => {
     if (id) {
       fetchPropertyDetails();
     }
-  }, [id, navigate]);
+  }, [id]);
 
-  // ഇൻപുട്ട് ഫീൽഡുകളിൽ മാറ്റം വരുത്തുമ്പോൾ സ്റ്റേറ്റ് അപ്ഡേറ്റ് ചെയ്യാൻ
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ഫോം സബ്മിറ്റ് ചെയ്യുമ്പോൾ (PUT request വഴി ബാക്ക്-എൻഡിലേക്ക് അയക്കുന്നു)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsUpdating(true);
 
     try {
-      const localUser = JSON.parse(localStorage.getItem('userInfo'));
-      const token = localUser?.token;
+      const response = await apiRequest(`properties/${id}`, {
+        method: 'PUT',
+        body: formData
+      });
 
-      if (!token) {
-        toast.error('Authentication expired. Please login again.');
-        return;
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || 'Property updated successfully!');
+        navigate(-1); 
+      } else {
+        toast.error(data.message || 'Failed to update property.');
       }
-
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      };
-
-      const baseURL = import.meta.env.VITE_API_URL || '';
-
-      // അപ്ഡേറ്റ് ചെയ്യാനുള്ള API കാൾ
-      const { data } = await axios.put(`${baseURL}/api/properties/${id}`, formData, config);
-
-      toast.success(data.message || 'Property updated successfully!');
-      navigate('/dashboard'); 
       
     } catch (error) {
       console.error("Update error:", error);
-      toast.error(error.response?.data?.message || 'Something went wrong while updating.');
+      toast.error('Something went wrong while updating.');
     } finally {
       setIsUpdating(false);
     }
@@ -122,158 +101,164 @@ const EditProperty = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      <div className="min-h-[80vh] flex items-center justify-center w-full">
+        <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-green-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 w-full overflow-x-hidden">
       
       {/* Header Section */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
         <button 
           onClick={() => navigate(-1)} 
-          className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600 cursor-pointer"
+          className="p-2 sm:p-2.5 mt-0.5 sm:mt-0 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-gray-600 cursor-pointer shrink-0"
+          aria-label="Go back"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={20} className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-800">Edit Property</h1>
-          <p className="text-sm font-semibold text-gray-500">Update the details of your listing (ID: {id})</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-800 truncate">Edit Property</h1>
+          <p className="text-xs sm:text-sm font-semibold text-gray-500 truncate mt-0.5">Update the details of your listing (ID: {id})</p>
         </div>
       </div>
 
-      {/* Form Section */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 p-5 sm:p-6 md:p-8 w-full"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
           
-          {/* Property Title */}
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-bold text-slate-700 mb-2">
-              <Building2 size={16} className="text-green-600" /> Property Title
+          {/* Title Field */}
+          <div className="w-full">
+            <label className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">
+              <Building2 size={16} className="text-green-600 shrink-0" /> Property Title
             </label>
             <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
+              type="text" 
+              name="title" 
+              value={formData.title} 
+              onChange={handleChange} 
               required
-              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold"
-              placeholder="e.g. Beautiful Sea-view Villa"
+              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Location */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-bold text-slate-700 mb-2">
-                <MapPin size={16} className="text-green-600" /> Location
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 w-full">
+            
+            {/* Location Field */}
+            <div className="w-full">
+              <label className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">
+                <MapPin size={16} className="text-green-600 shrink-0" /> Location
               </label>
               <input
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
+                type="text" 
+                name="location" 
+                value={formData.location} 
+                onChange={handleChange} 
                 required
-                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold"
+                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold"
               />
             </div>
 
-            {/* Price */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-bold text-slate-700 mb-2">
-                <IndianRupee size={16} className="text-green-600" /> Rent Price (₹ / Month)
+            {/* Price Field */}
+            <div className="w-full">
+              <label className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">
+                <IndianRupee size={16} className="text-green-600 shrink-0" /> Rent Price (₹ / Month)
               </label>
               <input
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
+                type="number" 
+                name="price" 
+                value={formData.price} 
+                onChange={handleChange} 
                 required
-                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold"
+                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold"
               />
             </div>
 
-            {/* Property Type */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-bold text-slate-700 mb-2">
-                <Home size={16} className="text-green-600" /> Property Type
+            {/* Property Type Dropdown */}
+            <div className="w-full">
+              <label className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">
+                <Home size={16} className="text-green-600 shrink-0" /> Property Type
               </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold"
-              >
-                <option value="Apartment">Apartment</option>
-                <option value="Villa">Villa</option>
-                <option value="Independent House">Independent House</option>
-                <option value="Studio">Studio</option>
-              </select>
-            </div>
-
-            {/* Beds & Baths Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Bedrooms</label>
-                <input
-                  type="number"
-                  name="bedrooms"
-                  value={formData.bedrooms}
+              <div className="relative w-full">
+                <select
+                  name="type" 
+                  value={formData.type} 
                   onChange={handleChange}
-                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold appearance-none"
+                >
+                  <option value="Apartment">Apartment</option>
+                  <option value="Villa">Villa</option>
+                  <option value="Independent House">Independent House</option>
+                  <option value="Studio">Studio</option>
+                </select>
+                {/* Custom Chevron for select */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Bedrooms and Bathrooms Split */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
+              <div className="w-full">
+                <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">Bedrooms</label>
+                <input
+                  type="number" 
+                  name="bedrooms" 
+                  value={formData.bedrooms} 
+                  onChange={handleChange}
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Bathrooms</label>
+              <div className="w-full">
+                <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">Bathrooms</label>
                 <input
-                  type="number"
-                  name="bathrooms"
-                  value={formData.bathrooms}
+                  type="number" 
+                  name="bathrooms" 
+                  value={formData.bathrooms} 
                   onChange={handleChange}
-                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold"
+                  className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold"
                 />
               </div>
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-bold text-slate-700 mb-2">
-              <Info size={16} className="text-green-600" /> Property Description
+          {/* Description Field */}
+          <div className="w-full">
+            <label className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 mb-1.5 sm:mb-2 ml-1">
+              <Info size={16} className="text-green-600 shrink-0" /> Property Description
             </label>
             <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="4"
+              name="description" 
+              value={formData.description} 
+              onChange={handleChange} 
+              rows="4" 
               required
-              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-slate-800 font-semibold resize-none"
+              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm sm:text-base text-slate-800 font-semibold resize-none"
             ></textarea>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-100">
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-4 pt-5 sm:pt-6 border-t border-gray-100 w-full">
             <button
-              type="button"
-              onClick={() => navigate(-1)}
+              type="button" 
+              onClick={() => navigate(-1)} 
               disabled={isUpdating}
-              className="flex items-center gap-1.5 px-6 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-6 py-3 rounded-xl text-sm sm:text-base font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50"
             >
               <X size={18} /> Cancel
             </button>
             <motion.button
               whileHover={{ scale: isUpdating ? 1 : 1.02 }}
               whileTap={{ scale: isUpdating ? 1 : 0.98 }}
-              type="submit"
+              type="submit" 
               disabled={isUpdating}
-              className="flex items-center gap-1.5 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-md transition-colors cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm sm:text-base font-bold shadow-md shadow-green-600/20 transition-all cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
             >
               <Save size={18} /> {isUpdating ? 'Saving...' : 'Save Changes'}
             </motion.button>

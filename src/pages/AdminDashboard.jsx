@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu } from 'lucide-react';
 
-// 📂 സബ്-കമ്പോണന്റുകൾ ഇമ്പോർട്ട് ചെയ്യുന്നു
+// 📂 Import sub-components
 import AdminSidebar from '../components/admin/AdminSidebar';
 import AdminOverview from '../components/admin/AdminOverview';
 import ManageUsers from '../components/admin/ManageUsers';
 import ManageProperties from '../components/admin/ManageProperties';
-// ManageInquiries മാറ്റി ManageComplaints ആക്കി ഉൾപ്പെടുത്തിയിട്ടുണ്ട് 👇
+// Replaced ManageInquiries with ManageComplaints 👇
 import ManageComplaints from '../components/admin/ManageComplaints';
 
 const AdminDashboard = () => {
@@ -15,7 +15,7 @@ const AdminDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [adminName, setAdminName] = useState('Admin');
 
-  // LocalStorage-ൽ നിന്ന് അഡ്മിന്റെ പേര് എടുക്കുന്നു
+  // Fetch admin name from LocalStorage on component mount
   useEffect(() => {
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     if (userInfo && userInfo.name) {
@@ -23,7 +23,7 @@ const AdminDashboard = () => {
     }
   }, []);
 
-  // സെലക്ട് ചെയ്യുന്ന ടാബ് അനുസരിച്ച് പേജുകൾ മാറ്റുന്നു
+  // Render dynamic content based on the selected tab
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -32,7 +32,7 @@ const AdminDashboard = () => {
         return <ManageUsers />;
       case 'properties':
         return <ManageProperties />;
-      case 'complaints': // 'inquiries' മാറ്റി 'complaints' ആക്കി
+      case 'complaints': 
         return <ManageComplaints />;
       default:
         return <AdminOverview />;
@@ -40,7 +40,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex relative">
+    <div className="min-h-screen bg-slate-50 flex relative w-full overflow-hidden">
       
       {/* --- SIDEBAR COMPONENT --- */}
       <AdminSidebar 
@@ -51,36 +51,37 @@ const AdminDashboard = () => {
       />
 
       {/* --- MAIN CONTENT AREA --- */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         
         {/* Top Header */}
-        <header className="bg-white border-b border-slate-100 h-16 flex items-center justify-between px-6 sticky top-0 z-40 shadow-sm">
-          <div className="flex items-center gap-4">
+        <header className="bg-white border-b border-slate-100 h-16 min-h-[4rem] flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40 shadow-sm w-full">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="text-slate-600 lg:hidden p-2 hover:bg-slate-50 rounded-xl transition-colors"
+              className="text-slate-600 lg:hidden p-2 hover:bg-slate-100 active:bg-slate-200 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200"
+              aria-label="Toggle Sidebar"
             >
               <Menu size={22} />
             </button>
-            <h1 className="text-sm font-bold text-slate-400 uppercase tracking-wider hidden sm:block">
+            <h1 className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider hidden sm:block truncate">
               Dashboard / <span className="text-slate-800 font-black">{activeTab}</span>
             </h1>
           </div>
 
           {/* Admin Info */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-black text-slate-800">{adminName}</p>
+              <p className="text-sm font-black text-slate-800 truncate max-w-[150px]">{adminName}</p>
               <p className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Super Admin</p>
             </div>
-            <div className="w-10 h-10 bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-black rounded-xl flex items-center justify-center border border-slate-200 shadow-sm uppercase">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-black rounded-xl flex items-center justify-center border border-slate-200 shadow-sm uppercase shrink-0 text-sm sm:text-base">
               {adminName.charAt(0)}
             </div>
           </div>
         </header>
 
         {/* Dynamic Sub-Component Body */}
-        <main className="flex-1 bg-slate-50 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 bg-slate-50 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8 w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -88,6 +89,7 @@ const AdminDashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
+              className="w-full max-w-7xl mx-auto"
             >
               {renderContent()}
             </motion.div>

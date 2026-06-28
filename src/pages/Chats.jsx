@@ -13,7 +13,7 @@ import { useCall } from '../App'; // 🚀 PRO FIX: Global Call Hook
 
 const Chats = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // 🚀 PRO FIX: ഇതിലൂടെയാണ് Property പേജിൽ നിന്നുള്ള ഡാറ്റ ലഭിക്കുന്നത്
+  const location = useLocation(); // 🚀 PRO FIX: Used to receive data passed from the Property page
   const socket = useSocket();
   const { user } = useAuth(); 
   const { initiateCall } = useCall(); 
@@ -55,7 +55,7 @@ const Chats = () => {
     };
   }, [isDarkMode]);
 
-  // 🚀 PRO FIX: PropertyDetails ൽ നിന്നും നാവിഗേറ്റ് ചെയ്ത് വരുമ്പോൾ വർക്ക് ആകുന്ന ലോജിക്
+  // 🚀 PRO FIX: Logic triggered when navigating from PropertyDetails
   useEffect(() => {
     if (location.state && location.state.ownerId) {
       const { ownerId, ownerName, ownerAvatar, startCall, callType } = location.state;
@@ -66,25 +66,25 @@ const Chats = () => {
         avatar: ownerAvatar 
       };
 
-      // 1. ചാറ്റ് വിൻഡോ ഓപ്പൺ ആക്കാൻ സെറ്റ് ചെയ്യുന്നു
+      // 1. Sets the active chat to open the chat window
       setActiveChat(newActiveChat);
 
-      // 2. കോൺടാക്ട് ലിസ്റ്റിൽ ഇല്ലെങ്കിൽ ആഡ് ചെയ്യുന്നു
+      // 2. Adds the contact to the list if it doesn't already exist
       setContacts((prev) => {
         const exists = prev.find(c => getUserId(c) === ownerId);
         if (!exists) return [newActiveChat, ...prev];
         return prev;
       });
 
-      // 3. Call ചെയ്യാൻ പറഞ്ഞിട്ടുണ്ടെങ്കിൽ ഓട്ടോമാറ്റിക് ആയി വിളിക്കുന്നു
+      // 3. Automatically initiates a call if requested
       if (startCall && initiateCall) {
-        // UI Render ആകാൻ ചെറിയൊരു ഡിലേ കൊടുക്കുന്നു
+        // 4. Introduces a brief delay for the UI to fully render
         setTimeout(() => {
           initiateCall(ownerId, ownerName, ownerAvatar, callType);
         }, 500);
       }
 
-      // 4. Refresh ചെയ്യുമ്പോൾ വീണ്ടും കട്ട് ആവാതിരിക്കാൻ History ൽ നിന്നും state ക്ലിയർ ചെയ്യുന്നു
+      // 5. Clears location state to prevent re-triggering call/logic on refresh
       navigate(location.pathname, { replace: true });
     }
   }, [location.state, getUserId, initiateCall, navigate, location.pathname]);
@@ -288,11 +288,11 @@ const Chats = () => {
       <div className={`flex w-full max-w-[1600px] mx-auto h-full ${theme.panelBg} overflow-hidden relative`}>
         
         {/* Left Hand Contacts Panel */}
-        <div className={`w-full md:w-[350px] lg:w-[400px] h-full flex-col shrink-0 border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-[350px] lg:w-[400px] h-full flex-col shrink-0 border-r ${theme.border} ${theme.panelBg} ${activeChat ? 'hidden md:flex' : 'flex'} min-w-0`}>
           
           <div className={`${theme.headerBg} p-3.5 flex justify-between items-center shrink-0 ${theme.iconColor}`}>
              <h2 className={`text-[20px] font-semibold ${theme.textPrimary}`}>Chats</h2>
-             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-1.5 hover:text-white rounded-full transition-colors">
+             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-1.5 hover:text-white rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500">
                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
              </button>
           </div>
@@ -310,7 +310,7 @@ const Chats = () => {
             </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-transparent">
             {filteredContacts.map((contact) => {
               const cid = getUserId(contact);
               const isChatActive = activeChatId === cid;
@@ -318,7 +318,7 @@ const Chats = () => {
                 <div 
                   key={cid || Math.random().toString()} 
                   onClick={() => handleSelectChat(contact)} 
-                  className={`flex items-center px-3 py-3 cursor-pointer ${isChatActive ? theme.active : theme.hover}`}
+                  className={`flex items-center px-3 py-3 cursor-pointer transition-colors ${isChatActive ? theme.active : theme.hover}`}
                 >
                   <div className="w-12 h-12 bg-[#6b7c85] text-white rounded-full flex items-center justify-center font-bold mr-3 uppercase overflow-hidden shrink-0">
                     {contact.avatar ? (
@@ -327,8 +327,8 @@ const Chats = () => {
                       contact.name ? contact.name.charAt(0) : 'U'
                     )}
                   </div>
-                  <div className={`flex-1 border-b ${theme.border} pb-3 -mb-3 flex justify-between min-w-0`}>
-                    <div className="flex-1 pr-2 truncate">
+                  <div className={`flex-1 border-b ${theme.border} pb-3 -mb-3 flex justify-between items-center min-w-0`}>
+                    <div className="flex-1 pr-2 truncate min-w-0">
                       <h3 className={`text-[16px] ${theme.textPrimary} font-medium truncate`}>{contact.name || 'User'}</h3>
                       <p className={`text-[14px] ${theme.textSecondary} truncate`}>{contact.lastMessage || ''}</p>
                     </div>
