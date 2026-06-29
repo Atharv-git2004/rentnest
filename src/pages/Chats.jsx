@@ -184,30 +184,38 @@ const Chats = () => {
 
     const handleReceiveMessage = (message) => {
       const msgSenderId = getUserId(message.senderId || message.sender);
-      if (msgSenderId === currentUserId) return;
+      const msgReceiverId = getUserId(message.receiverId || message.receiver);
+      
+      // 🚀 PRO FIX: സ്വന്തം മെസ്സേജ് ആണെങ്കിലും മറ്റൊരാളുടെ ആണെങ്കിലും ചാറ്റ് പാർട്ണറെ കൃത്യമായി കണ്ടുപിടിക്കുന്നു.
+      const chatPartnerId = msgSenderId === currentUserId ? msgReceiverId : msgSenderId;
+      if (!chatPartnerId) return;
 
       setChatHistory((prev) => {
-        const existing = prev[msgSenderId] || [];
+        const existing = prev[chatPartnerId] || [];
         if (existing.some(m => m._id === message._id)) return prev;
-        return { ...prev, [msgSenderId]: [...existing, message] };
+        return { ...prev, [chatPartnerId]: [...existing, message] };
       });
 
       setContacts((prevContacts) => {
-        const filtered = prevContacts.filter((c) => getUserId(c) !== msgSenderId);
-        const existing = prevContacts.find((c) => getUserId(c) === msgSenderId);
-        const isChatOpen = activeChatIdRef.current === msgSenderId;
-        const newUnreadCount = isChatOpen ? 0 : (existing?.unreadCount || 0) + 1;
-        let lastMsgText = message.messageType === 'call' ? (message.callDetails?.callType === 'video' ? '📹 Video Call' : '📞 Audio Call') : message.text;
+        const filtered = prevContacts.filter((c) => getUserId(c) !== chatPartnerId);
+        const existing = prevContacts.find((c) => getUserId(c) === chatPartnerId);
+        const isChatOpen = activeChatIdRef.current === chatPartnerId;
+        
+        // നമ്മൾ അയച്ചതോ അല്ലെങ്കിൽ നമ്മൾ കണ്ടുകൊണ്ടിരിക്കുന്ന ചാറ്റോ ആണെങ്കിൽ അൺറീഡ് കൗണ്ട് കൂട്ടേണ്ടതില്ല.
+        const newUnreadCount = (isChatOpen || msgSenderId === currentUserId) ? 0 : (existing?.unreadCount || 0) + 1;
+        let lastMsgText = message.messageType === 'call' 
+          ? (message.callDetails?.callType === 'video' ? '📹 Video Call' : '📞 Audio Call') 
+          : message.text;
         
         const updatedContact = existing 
           ? { ...existing, lastMessage: lastMsgText, time: 'Just now', unreadCount: newUnreadCount } 
-          : { _id: msgSenderId, name: message.senderName || 'User', lastMessage: lastMsgText, time: 'Just now', unreadCount: 1 };
+          : { _id: chatPartnerId, name: message.senderName || 'User', lastMessage: lastMsgText, time: 'Just now', unreadCount: newUnreadCount };
         
         return [updatedContact, ...filtered];
       });
 
-      if (activeChatIdRef.current === msgSenderId) {
-        socket.emit('mark-messages-read', { senderId: msgSenderId, receiverId: currentUserId });
+      if (activeChatIdRef.current === chatPartnerId && msgSenderId !== currentUserId) {
+        socket.emit('mark-messages-read', { senderId: chatPartnerId, receiverId: currentUserId });
       }
     };
 
@@ -254,12 +262,15 @@ const Chats = () => {
     };
 
     socket.on('receive-message', handleReceiveMessage);
+    // 🚀 PRO FIX: ബാക്ക്എൻഡ് പ്രത്യേകമായി കോൾ ലോഗ് ഇവന്റുകൾ അയക്കുകയാണെങ്കിൽ അതും ലൈവ് ആയി അപ്ഡേറ്റ് ചെയ്യാൻ വേണ്ടി.
+    socket.on('call-log-update', handleReceiveMessage); 
     socket.on('messages-read', handleMessagesRead);
     socket.on('receive-edit', handleMessageEdited);       
     socket.on('receive-delete', handleMessageDeleted);   
 
     return () => {
       socket.off('receive-message', handleReceiveMessage);
+      socket.off('call-log-update', handleReceiveMessage);
       socket.off('messages-read', handleMessagesRead);
       socket.off('receive-edit', handleMessageEdited);     
       socket.off('receive-delete', handleMessageDeleted); 
