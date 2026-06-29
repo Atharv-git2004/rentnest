@@ -28,14 +28,14 @@ export const SocketProvider = ({ children }) => {
 
         console.log("🔌 Initializing connection for User ID:", currentUserId);
         
-        // Render URL അല്ലെങ്കിൽ Localhost (എൻവിറോൺമെന്റ് വേരിയബിൾ ഉപയോഗിക്കാം)
-        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://rentnest-backend-civ9.onrender.com";
+        // 💡 ഇവിടെയാണ് മാറ്റം വരുത്തിയിരിക്കുന്നത്. Render ലിങ്കിന് പകരം Localhost ബാക്ക്-എൻഡ് യുആർഎൽ നൽകി.
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
         // പുതിയ കണക്ഷൻ ഉണ്ടാക്കുന്നു
         const newSocket = io(SOCKET_URL, {
             query: { userId: currentUserId }, 
-            // 💡 Note: transports: ["websocket"] ഞാൻ ഒഴിവാക്കി. 
-            // Render-ൽ കണക്ഷൻ എറർ വരുന്നത് ഒഴിവാക്കാൻ ഡിഫോൾട്ട് രീതി (polling -> websocket) ഉപയോഗിക്കുന്നതാണ് നല്ലത്.
+            // Render-ലും ലോക്കൽഹോസ്റ്റിലും കണക്ഷൻ ഡ്രോപ്പ് ആകാതിരിക്കാൻ പോളിങ് കൂടി ചേർക്കുന്നു
+            transports: ['polling', 'websocket'],
             autoConnect: true,
             reconnectionAttempts: 5, 
             reconnectionDelay: 2000  
