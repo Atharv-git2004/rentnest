@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast'; 
 import { 
   Building2, UserPlus, LogOut, User, Menu, X, AlertTriangle,
-  Home as HomeIcon, MessageSquare, Compass, HelpCircle, ShieldCheck, LayoutDashboard 
+  Home as HomeIcon, MessageSquare, Compass, HelpCircle, ShieldCheck, LayoutDashboard, Heart 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
 
@@ -53,7 +53,6 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          {/* Updated breakpoint to lg to prevent overflow and overlapping on tablet devices */}
           <div className="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-gray-600">
             <Link to="/" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/')}`}>
               <HomeIcon size={16} /> <span>Home</span>
@@ -69,6 +68,11 @@ const Navbar = () => {
 
             {userInfo && (
               <>
+                {/* Wishlist Link */}
+                <Link to="/wishlist" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/wishlist')}`}>
+                  <Heart size={16} /> <span>Wishlist</span>
+                </Link>
+
                 <Link to="/chats" className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${getLinkStyle('/chats')}`}>
                   <MessageSquare size={16} /> <span>Chats</span>
                 </Link>
@@ -182,6 +186,11 @@ const Navbar = () => {
 
               {userInfo && (
                 <>
+                  {/* Wishlist Link Mobile */}
+                  <Link to="/wishlist" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/wishlist')}`}>
+                    <Heart size={16} /> <span>Wishlist</span>
+                  </Link>
+
                   <Link to="/chats" onClick={() => setIsOpen(false)} className={`flex items-center gap-2 p-3 rounded-xl ${getLinkStyle('/chats')}`}>
                     <MessageSquare size={16} /> <span>Chats</span>
                   </Link>

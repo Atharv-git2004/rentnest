@@ -23,6 +23,7 @@ import EditProperty from './pages/EditProperty';
 import AddProperty from './pages/AddProperty';
 import HowItWorks from './pages/HowItWorks';
 import ComplaintsPage from './pages/ComplaintsPage';
+import Wishlist from './pages/Wishlist';
 
 // =======================================================
 // 📞 1. GLOBAL CALL CONTEXT & PROVIDER (The Master Hub)
@@ -180,6 +181,7 @@ const AppContent = () => {
           <Route path="/edit-property/:id" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><EditProperty /></ProtectedRoute>} />
           <Route path="/add-property" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><AddProperty /></ProtectedRoute>} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} /> {/* 💡 Wishlist റൂട്ട് ചേർത്തു */}
         </Routes>
       </div>
       <BottomNavbar />

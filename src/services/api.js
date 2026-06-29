@@ -6,55 +6,57 @@ const BASE_URL = envUrl.replace(/\/+$/, '');
 export const apiRequest = async (endpoint, options = {}) => {
   
   // 1. Properly format the URL
-  // Remove any leading slashes from the endpoint to prevent double slashes (e.g., //users)
   const cleanEndpoint = endpoint.replace(/^\/+/, '');
   const url = `${BASE_URL}/${cleanEndpoint}`;
 
-  const headers = { ...options.headers };
+  // 2. Safely manage Headers using the built-in Headers API to avoid case-sensitivity issues
+  const headers = new Headers(options.headers || {});
+  
+  // Create a new fetch options object so we don't mutate the original options passed in
+  const fetchOptions = { ...options };
 
-  // 2. Auto-manage Body and Content-Type
-  if (options.body) {
-    if (options.body instanceof FormData) {
+  // 3. Auto-manage Body and Content-Type
+  if (fetchOptions.body) {
+    if (fetchOptions.body instanceof FormData) {
       // The browser automatically sets the Content-Type with the correct boundary for FormData
-      delete headers['Content-Type']; 
-    } else {
-      // Convert object to JSON string if necessary
-      if (typeof options.body === 'object') {
-        options.body = JSON.stringify(options.body);
-      }
+      headers.delete('Content-Type'); 
+    } else if (typeof fetchOptions.body === 'object' && fetchOptions.body !== null) {
+      // Convert object to JSON string if it's a valid object
+      fetchOptions.body = JSON.stringify(fetchOptions.body);
+      
       // Ensure JSON Content-Type is set
-      if (!headers['Content-Type']) {
-        headers['Content-Type'] = 'application/json';
+      if (!headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
       }
     }
   }
 
-  // 3. Retrieve token from localStorage
+  // 4. Retrieve token from localStorage
   try {
     const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
       const parsedUser = JSON.parse(userInfo);
       if (parsedUser?.token) {
-        headers['Authorization'] = `Bearer ${parsedUser.token}`;
+        headers.set('Authorization', `Bearer ${parsedUser.token}`);
       }
     }
   } catch (e) {
     console.warn("⚠️ Error reading token from localStorage:", e);
   }
 
-  console.log(`🚀 API Request: [${options.method || 'GET'}] ${url}`);
+  // Attach the finalized headers to our fetch options
+  fetchOptions.headers = headers;
+
+  console.log(`🚀 API Request: [${fetchOptions.method || 'GET'}] ${url}`);
 
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const response = await fetch(url, fetchOptions);
 
-    // 4. Handle Token Expiry (401 Unauthorized)
+    // 5. Handle Token Expiry (401 Unauthorized)
     if (response.status === 401) {
       console.warn("⚠️ Session expired. Logging out...");
       localStorage.removeItem('userInfo');
-      window.location.href = '/login'; // Redirect to login page on token expiry
+      window.location.href = '/login'; 
       return response;
     }
 
@@ -63,7 +65,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   } catch (error) {
     console.error(`❌ API Request Error on ${endpoint}:`, error);
     
-    // 5. Return a safe fallback response to prevent the app from crashing on network failures
+    // 6. Return a safe fallback response to prevent the app from crashing
     return {
       ok: false,
       status: 503,
