@@ -1,15 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Heart, BedDouble, Bath, Maximize, ArrowRight } from 'lucide-react';
+// 1. മുകളിൽ apiRequest Import ആഡ് ചെയ്തു
+import { apiRequest } from '../services/api';
 
 // Set default backend running URL
 const BACKEND_URL = 'http://localhost:5000';
 
-// Accept houseImage alongside other properties as props
-const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, description, area, bathrooms }) => {
+// 2. Component Props-ൽ currentUserWishlist = [] ആഡ് ചെയ്തു
+const PropertyCard = ({ 
+  id, 
+  image, 
+  houseImage, 
+  title, 
+  location, 
+  price, 
+  bhk, 
+  description, 
+  area, 
+  bathrooms, 
+  currentUserWishlist = [] 
+}) => {
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
+  // 3. Wishlist ലോഡിംഗ് സ്റ്റേറ്റ് ആഡ് ചെയ്തു
+  const [isWishlistLoading, setIsWishlistLoading] = useState(false);
+
+  // Wishlist നിലവിൽ ഉണ്ടോ എന്ന് ചെക്ക് ചെയ്യാൻ
+  useEffect(() => {
+    if (currentUserWishlist && currentUserWishlist.includes(id)) {
+      setIsLiked(true);
+    } else {
+      setIsLiked(false);
+    }
+  }, [currentUserWishlist, id]);
+
+  // Wishlist ടോഗിൾ ചെയ്യാനുള്ള ഫങ്ഷൻ
+  const handleWishlistToggle = async (e) => {
+    e.stopPropagation(); 
+    
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    if (!userInfo || !userInfo.token) {
+      alert("Please login to add properties to your wishlist.");
+      navigate('/login');
+      return;
+    }
+
+    setIsWishlistLoading(true);
+    const previousState = isLiked;
+    setIsLiked(!isLiked); // UI ഉടനെ മാറ്റുന്നു (Optimistic UI)
+
+    try {
+      const res = await apiRequest('/users/wishlist/toggle', {
+        method: 'POST',
+        body: { propertyId: id } 
+      });
+
+      if (!res.ok) throw new Error("Server Error");
+    } catch (error) {
+      setIsLiked(previousState); // എറർ വന്നാൽ തിരികെ പഴയ അവസ്ഥയാക്കുന്നു
+      alert("Something went wrong!");
+    } finally {
+      setIsWishlistLoading(false);
+    }
+  };
 
   // Navigation function
   const handleNavigate = () => {
@@ -18,7 +73,7 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
 
   // Function to fetch the original image from the database
   const getImageUrl = (imagePath) => {
-    if (!imagePath) return ''; // Removed automatic fake Unsplash image
+    if (!imagePath) return ''; 
     if (imagePath.startsWith('http')) return imagePath; 
 
     // Convert Windows backslashes (\) to forward slashes (/)
@@ -45,7 +100,6 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
             alt={title || "Property"}
             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
             onError={(e) => {
-              // Show a clean gray box message if the image is missing locally
               e.target.onerror = null; 
               e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' fill='%2394a3b8' font-family='sans-serif' font-size='12' font-weight='bold' text-anchor='middle' dy='.3em'%3EImage Not Found on Server%3C/text%3E%3C/svg%3E";
             }}
@@ -59,13 +113,11 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
         {/* Hover Dark Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Like Button (Heart) */}
+        {/* 4. Heart Button മാറ്റങ്ങൾ വരുത്തിയത് (disabled, onClick ഒപ്പം ഡിസൈൻ നിലനിർത്തിക്കൊണ്ട്) */}
         <button
-          onClick={(e) => {
-            e.stopPropagation(); 
-            setIsLiked(!isLiked);
-          }}
-          className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10 bg-white/90 backdrop-blur-sm p-1.5 sm:p-2 rounded-full shadow-sm hover:scale-110 transition-transform duration-200"
+          onClick={handleWishlistToggle}
+          disabled={isWishlistLoading}
+          className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10 bg-white/90 backdrop-blur-sm p-1.5 sm:p-2 rounded-full shadow-sm hover:scale-110 transition-transform duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
           aria-label="Like property"
         >
           <Heart
