@@ -28,8 +28,8 @@ export const SocketProvider = ({ children }) => {
 
         console.log("🔌 Initializing connection for User ID:", currentUserId);
         
-        // 💡 ഇവിടെയാണ് മാറ്റം വരുത്തിയിരിക്കുന്നത്. Render ലിങ്കിന് പകരം Localhost ബാക്ക്-എൻഡ് യുആർഎൽ നൽകി.
-        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+        // 💡 ഇവിടെയാണ് മാറ്റം വരുത്തിയിരിക്കുന്നത്. Localhost-ന് പകരം നിങ്ങളുടെ Render ലൈവ് യുആർഎൽ നൽകി.
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://rentnest-backend-civ9.onrender.com";
 
         // പുതിയ കണക്ഷൻ ഉണ്ടാക്കുന്നു
         const newSocket = io(SOCKET_URL, {
