@@ -1,12 +1,6 @@
-/**
- * services/api.js
- * Professional API Request Service with robust error handling, auto Content-Type management,
- * and Token Expiry (401) handling.
- */
+const envUrl = import.meta.env.VITE_API_URL || 'https://rentnest-backend-civ9.onrender.com/api';
 
 // Ensure no trailing slashes on the base URL.
-// Defaults to localhost:5000/api for local development if VITE_API_URL is not set in Vercel
-const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const BASE_URL = envUrl.replace(/\/+$/, '');
 
 export const apiRequest = async (endpoint, options = {}) => {
