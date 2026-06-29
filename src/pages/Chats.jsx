@@ -103,15 +103,21 @@ const Chats = () => {
     fetchConversations();
   }, [currentUserId]);
 
+  // 💡 പുതുക്കിയ fetchMessages useEffect
   useEffect(() => {
-    if (!activeChatId || !currentUserId) return;
+    // 💡 ഐഡി ഇല്ലെങ്കിലോ അല്ലെങ്കിൽ 'null', 'undefined' എന്ന ടെക്സ്റ്റ് ആണെങ്കിലോ റിക്വസ്റ്റ് പോകരുത്
+    if (!activeChatId || activeChatId === 'undefined' || activeChatId === 'null' || !currentUserId) return;
+    
     const fetchMessages = async () => {
       try {
         const res = await apiRequest(`/messages/${activeChatId}`, { method: 'GET' });
-        const data = await res.json();
-        if (data.success) {
-          setChatHistory(prev => ({ ...prev, [activeChatId]: data.data }));
-          if (socket) socket.emit('mark-messages-read', { senderId: activeChatId, receiverId: currentUserId });
+        // റെസ്പോൺസ് വാലിഡ് ആണോ എന്ന് നോക്കുക
+        if (res.ok) {
+           const data = await res.json();
+           if (data.success) {
+             setChatHistory(prev => ({ ...prev, [activeChatId]: data.data }));
+             if (socket) socket.emit('mark-messages-read', { senderId: activeChatId, receiverId: currentUserId });
+           }
         }
       } catch (err) { 
         console.error("Messages fetch error:", err); 
@@ -265,7 +271,7 @@ const Chats = () => {
     // 🚀 PRO FIX: ബാക്ക്എൻഡ് പ്രത്യേകമായി കോൾ ലോഗ് ഇവന്റുകൾ അയക്കുകയാണെങ്കിൽ അതും ലൈവ് ആയി അപ്ഡേറ്റ് ചെയ്യാൻ വേണ്ടി.
     socket.on('call-log-update', handleReceiveMessage); 
     socket.on('messages-read', handleMessagesRead);
-    socket.on('receive-edit', handleMessageEdited);       
+    socket.on('receive-edit', handleMessageEdited);        
     socket.on('receive-delete', handleMessageDeleted);   
 
     return () => {
