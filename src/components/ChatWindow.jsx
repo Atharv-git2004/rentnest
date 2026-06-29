@@ -120,6 +120,72 @@ const ChatWindow = ({
     }, 100);
   }, [activeChatId, currentMessages.length]);
 
+  // ==========================================
+  // NEW FIX: SOCKET LISTENERS FOR REAL-TIME UPDATES
+  // ==========================================
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReceiveMessage = (incomingMsg) => {
+      const chatId = getUserId(incomingMsg.senderId);
+      
+      setChatHistory((prev) => ({
+        ...prev,
+        [chatId]: [...(prev[chatId] || []), incomingMsg]
+      }));
+
+      setContacts((prevContacts) => {
+        const safeContacts = prevContacts || [];
+        const filtered = safeContacts.filter((c) => getUserId(c) !== chatId);
+        const existing = safeContacts.find((c) => getUserId(c) === chatId);
+        
+        if (existing) {
+          return [{ ...existing, lastMessage: incomingMsg.text || '📎 Media', time: 'Just now' }, ...filtered];
+        }
+        return safeContacts; 
+      });
+    };
+
+    const handleEditMessage = (editedMsg) => {
+      const chatId = getUserId(editedMsg.senderId) === currentUserId 
+                     ? getUserId(editedMsg.receiverId) 
+                     : getUserId(editedMsg.senderId);
+                     
+      setChatHistory((prev) => ({
+        ...prev,
+        [chatId]: (prev[chatId] || []).map(msg => 
+          msg._id === editedMsg._id ? editedMsg : msg
+        )
+      }));
+    };
+
+    const handleDeleteMessage = ({ messageId, senderId, receiverId }) => {
+      const chatId = getUserId(senderId) === currentUserId 
+                     ? getUserId(receiverId) 
+                     : getUserId(senderId);
+
+      setChatHistory((prev) => ({
+        ...prev,
+        [chatId]: (prev[chatId] || []).map(msg => 
+          msg._id === messageId 
+            ? { ...msg, isDeleted: true, text: "This message was deleted", fileUrl: "" } 
+            : msg
+        )
+      }));
+    };
+
+    socket.on('receive-message', handleReceiveMessage);
+    socket.on('edit-message', handleEditMessage);
+    socket.on('delete-message', handleDeleteMessage);
+
+    return () => {
+      socket.off('receive-message', handleReceiveMessage);
+      socket.off('edit-message', handleEditMessage);
+      socket.off('delete-message', handleDeleteMessage);
+    };
+  }, [socket, currentUserId, setChatHistory, setContacts]);
+  // ==========================================
+
   const formatTime = useCallback((dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -395,7 +461,7 @@ const ChatWindow = ({
       const existing = safeContacts.find((c) => getUserId(c) === activeChatId) || activeChat;
       return [{ ...existing, lastMessage: messageText, time: 'Just now' }, ...filtered];
     });
-
+    
     try {
       const response = await apiRequest('/messages', {
         method: 'POST',
