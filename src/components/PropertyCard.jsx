@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Heart, BedDouble, Bath, Maximize, ArrowRight } from 'lucide-react';
-// 1. മുകളിൽ apiRequest Import ആഡ് ചെയ്തു
 import { apiRequest } from '../services/api';
 
 // Set default backend running URL
 const BACKEND_URL = 'http://localhost:5000';
 
-// 2. Component Props-ൽ currentUserWishlist = [] ആഡ് ചെയ്തു
 const PropertyCard = ({ 
   id, 
   image, 
@@ -24,15 +22,15 @@ const PropertyCard = ({
 }) => {
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
-  // 3. Wishlist ലോഡിംഗ് സ്റ്റേറ്റ് ആഡ് ചെയ്തു
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
 
-  // Wishlist നിലവിൽ ഉണ്ടോ എന്ന് ചെക്ക് ചെയ്യാൻ
+  // FIX 1: ID-കൾ തമ്മിൽ ടൈപ്പ് വ്യത്യാസം ഉണ്ടെങ്കിലും കൃത്യമായി കണ്ടുപിടിക്കാൻ String() ഉപയോഗിച്ചു നോക്കുന്നു
   useEffect(() => {
-    if (currentUserWishlist && currentUserWishlist.includes(id)) {
-      setIsLiked(true);
-    } else {
-      setIsLiked(false);
+    if (currentUserWishlist && Array.isArray(currentUserWishlist)) {
+      const isInWishlist = currentUserWishlist.some(
+        (wishlistId) => String(wishlistId) === String(id)
+      );
+      setIsLiked(isInWishlist);
     }
   }, [currentUserWishlist, id]);
 
@@ -49,7 +47,7 @@ const PropertyCard = ({
 
     setIsWishlistLoading(true);
     const previousState = isLiked;
-    setIsLiked(!isLiked); // UI ഉടനെ മാറ്റുന്നു (Optimistic UI)
+    setIsLiked(!isLiked); // Optimistic UI: ഉടൻ തന്നെ ഹാർട്ട് ലൈറ്റ് ഓൺ ആക്കുന്നു
 
     try {
       const res = await apiRequest('/users/wishlist/toggle', {
@@ -57,10 +55,14 @@ const PropertyCard = ({
         body: { propertyId: id } 
       });
 
-      if (!res.ok) throw new Error("Server Error");
+      // FIX 2: കസ്റ്റം apiRequest ആയതുകൊണ്ട് res.ok ഇല്ലാതെയുള്ള എറർ ഉണ്ടാകാതിരിക്കാൻ ഇത് മാറ്റിയെഴുതി
+      if (res && res.status === false) {
+        throw new Error("Failed to update wishlist");
+      }
     } catch (error) {
-      setIsLiked(previousState); // എറർ വന്നാൽ തിരികെ പഴയ അവസ്ഥയാക്കുന്നു
-      alert("Something went wrong!");
+      // എറർ ഉണ്ടായാൽ മാത്രം ഹാർട്ട് കളർ പഴയതുപോലെയാക്കും
+      setIsLiked(previousState); 
+      alert("Something went wrong while updating wishlist!");
     } finally {
       setIsWishlistLoading(false);
     }
@@ -81,7 +83,6 @@ const PropertyCard = ({
     return `${BACKEND_URL}/${cleanPath}`;
   };
 
-  // Prioritize houseImage if available, else fallback to image field
   const actualImage = houseImage || image;
   const displayImage = getImageUrl(actualImage);
 
@@ -113,7 +114,7 @@ const PropertyCard = ({
         {/* Hover Dark Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* 4. Heart Button മാറ്റങ്ങൾ വരുത്തിയത് (disabled, onClick ഒപ്പം ഡിസൈൻ നിലനിർത്തിക്കൊണ്ട്) */}
+        {/* Heart Button */}
         <button
           onClick={handleWishlistToggle}
           disabled={isWishlistLoading}
