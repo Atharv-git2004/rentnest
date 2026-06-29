@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Heart, BedDouble, Bath, Maximize, ArrowRight } from 'lucide-react';
 import { apiRequest } from '../services/api';
+import toast from 'react-hot-toast'; // Toast ഉണ്ടെങ്കിൽ ഉപയോഗിക്കാം, അല്ലെങ്കിൽ alert വെക്കാം
 
-const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+// .env ഫയലിൽ VITE_API_URL കൃത്യമാണെന്ന് ഉറപ്പുവരുത്തുക
+const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://rentnest-backend-civ9.onrender.com';
 
 const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, description, area, bathrooms, currentUserWishlist = [] }) => {
   const navigate = useNavigate();
@@ -13,7 +15,8 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
 
   useEffect(() => {
-    if (currentUserWishlist && currentUserWishlist.includes(id)) {
+    // currentUserWishlist ഉണ്ടോ എന്ന് നോക്കി ആദ്യം തന്നെ നിറം സെറ്റ് ചെയ്യുന്നു
+    if (currentUserWishlist && Array.isArray(currentUserWishlist) && currentUserWishlist.includes(id)) {
       setIsLiked(true);
     } else {
       setIsLiked(false);
@@ -46,6 +49,7 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
 
     setIsWishlistLoading(true);
     
+    // Optimistic Update: API പ്രതികരിക്കും മുൻപേ UI മാറ്റുന്നു
     const previousState = isLiked;
     setIsLiked(!isLiked); 
 
@@ -55,24 +59,18 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
         body: { propertyId: id } 
       });
 
-      // 💡 FIX: റെസ്പോൺസ് യഥാർത്ഥത്തിൽ JSON ആണോ എന്ന് ഉറപ്പുവരുത്തുന്നു
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        const data = await res.json();
-        
-        if (!res.ok) {
-          setIsLiked(previousState);
-          alert(data.message || "Failed to update wishlist");
-        }
-      } else {
-        // HTML എറർ ആണ് വരുന്നതെങ്കിൽ ക്രാഷ് ആവാതിരിക്കാൻ
-        setIsLiked(previousState);
-        console.error("Received non-JSON response (404 Error). Backend route is missing.");
-        alert("Wishlist feature is currently unavailable. Please add the route in backend.");
+      if (!res.ok) {
+        throw new Error("Server rejected request");
       }
+
+      const data = await res.json();
+      console.log("Wishlist updated:", data);
+      
     } catch (error) {
-      console.error("Wishlist error:", error);
+      console.error("Wishlist error details:", error);
+      // എറർ വന്നാൽ പഴയ അവസ്ഥയിലേക്ക് മാറ്റുന്നു
       setIsLiked(previousState); 
+      alert("Failed to update wishlist. Please check your internet or backend.");
     } finally {
       setIsWishlistLoading(false);
     }
@@ -85,32 +83,22 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="group relative bg-white rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer flex flex-col h-full w-full"
     >
-      {/* --- 1. IMAGE & BADGES SECTION --- */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 border-b border-slate-100">
         {displayImage ? (
           <img
             src={displayImage}
             alt={title || "Property"}
             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-            onError={(e) => {
-              e.target.onerror = null; 
-              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' fill='%2394a3b8' font-family='sans-serif' font-size='12' font-weight='bold' text-anchor='middle' dy='.3em'%3EImage Not Found on Server%3C/text%3E%3C/svg%3E";
-            }}
+            onError={(e) => { e.target.src = "https://via.placeholder.com/400x300?text=No+Image"; }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-50 text-xs font-bold text-slate-400">
-            No Image Uploaded
-          </div>
+          <div className="w-full h-full flex items-center justify-center bg-slate-50">No Image</div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-        {/* 💡 Updated Like Button */}
         <button
           onClick={handleWishlistToggle}
           disabled={isWishlistLoading}
-          className={`absolute top-3 sm:top-4 right-3 sm:right-4 z-10 bg-white/90 backdrop-blur-sm p-1.5 sm:p-2 rounded-full shadow-sm hover:scale-110 transition-transform duration-200 ${isWishlistLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          aria-label="Like property"
+          className="absolute top-3 right-3 z-10 bg-white/90 p-2 rounded-full shadow-sm hover:scale-110 transition-transform"
         >
           <Heart
             size={18}
@@ -120,60 +108,21 @@ const PropertyCard = ({ id, image, houseImage, title, location, price, bhk, desc
           />
         </button>
 
-        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10 flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <div className="bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-slate-900 shadow-lg flex items-center gap-1">
-            <span className="text-xs sm:text-sm">₹{price?.toLocaleString('en-IN') || "0"}</span>
-            <span className="text-[9px] sm:text-[10px] text-slate-500 font-semibold uppercase tracking-wider">/mo</span>
-          </div>
-          {bhk && (
-            <div className="bg-emerald-500 text-white px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wider shadow-lg">
-              {bhk} BHK
+        <div className="absolute bottom-3 left-3 z-10 flex gap-2">
+            <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl font-black text-slate-900 shadow-lg">
+                ₹{price?.toLocaleString('en-IN') || "0"}
             </div>
-          )}
         </div>
       </div>
 
-      {/* --- 2. DETAILS SECTION --- */}
-      <div className="p-4 sm:p-5 flex flex-col flex-1">
-        <div className="mb-3 sm:mb-4">
-          <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight mb-1 line-clamp-1 group-hover:text-emerald-600 transition-colors">
-            {title || "Premium Residence"}
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium flex items-center gap-1 sm:gap-1.5">
-            <MapPin size={14} className="text-slate-400 flex-shrink-0" />
-            <span className="truncate">{location || "Location unavailable"}</span>
-          </p>
-        </div>
-
-        <p className="text-xs sm:text-sm text-slate-500 line-clamp-2 mb-4 sm:mb-5 leading-relaxed">
-          {description || "Explore this beautiful and spacious property."}
-        </p>
-
-        <div className="mt-auto space-y-3 sm:space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-y-2 py-3 border-y border-slate-100">
-            <div className="flex items-center gap-1 sm:gap-1.5 text-slate-600">
-              <BedDouble size={14} className="text-slate-400 sm:w-4 sm:h-4" />
-              <span className="text-[11px] sm:text-xs font-bold">{bhk || 2} Beds</span>
-            </div>
-            <div className="hidden sm:block w-[1px] h-4 bg-slate-200"></div>
-            <div className="flex items-center gap-1 sm:gap-1.5 text-slate-600">
-              <Bath size={14} className="text-slate-400 sm:w-4 sm:h-4" />
-              <span className="text-[11px] sm:text-xs font-bold">{bathrooms || bhk || 2} Baths</span>
-            </div>
-            <div className="hidden sm:block w-[1px] h-4 bg-slate-200"></div>
-            <div className="flex items-center gap-1 sm:gap-1.5 text-slate-600">
-              <Maximize size={14} className="text-slate-400 sm:w-4 sm:h-4" />
-              <span className="text-[11px] sm:text-xs font-bold">{area || "1200"} sqft</span>
-            </div>
-          </div>
-
-          <button className="w-full bg-slate-50 hover:bg-emerald-600 text-slate-700 hover:text-white font-bold text-xs sm:text-sm py-2.5 sm:py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn">
-            View Details
-            <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform" />
-          </button>
+      <div className="p-5 flex flex-col flex-1">
+        <h3 className="text-lg font-bold text-slate-800 line-clamp-1">{title}</h3>
+        <p className="text-sm text-slate-500 mb-4">{location}</p>
+        <div className="mt-auto flex justify-between border-t pt-4">
+            <span className="text-xs font-bold">{bhk} BHK</span>
+            <span className="text-xs font-bold">{area} sqft</span>
         </div>
       </div>
-
     </motion.div>
   );
 };
