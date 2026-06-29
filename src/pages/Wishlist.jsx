@@ -12,23 +12,18 @@ const Wishlist = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await apiRequest('/users/wishlist', { method: 'GET' });
+        // FIX 1: apiRequest നേരിട്ട് ഡാറ്റ റിട്ടേൺ ചെയ്യുന്ന രീതിയിലേക്ക് മാറ്റി
+        const data = await apiRequest('/users/wishlist', { method: 'GET' });
         
-        const contentType = res.headers.get("content-type");
-        
-        if (contentType && contentType.includes("application/json")) {
-          const data = await res.json();
-          if (res.ok && data.success) {
-            setWishlistProps(data.wishlist || []);
-          } else {
-            setError(data.message || "Failed to fetch wishlist");
-          }
+        if (data && (data.success || Array.isArray(data.wishlist))) {
+          // ബാക്ക്-എൻഡ് റെസ്പോൺസ് അനുസരിച്ച് വിഷ്‌ലിസ്റ്റ് അറേ സെറ്റ് ചെയ്യുന്നു
+          setWishlistProps(data.wishlist || data || []);
         } else {
-          setError("Backend route not found (404 Error). Please make sure the backend is updated.");
+          setError(data?.message || "Failed to fetch wishlist");
         }
       } catch (err) {
         console.error("Error fetching wishlist:", err);
-        setError("Network error. Please try again later.");
+        setError("Network error or Route not found. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -37,16 +32,14 @@ const Wishlist = () => {
     fetchWishlist();
   }, []);
 
-  // ഈ ഫംഗ്ഷൻ വഴി പ്രോപ്പർട്ടി വിഷ്‌ലിസ്റ്റിൽ നിന്ന് റിമൂവ് ചെയ്താൽ കാർഡ് ലൈവ് ആയി മാറും
-  const handleRemoveFromWishlistUI = (propertyId) => {
-    setWishlistProps(prev => prev.filter(prop => prop._id !== propertyId));
-  };
-
   if (loading) return (
     <div className="flex justify-center items-center min-h-[60vh]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-emerald-600"></div>
     </div>
   );
+
+  // പ്രോപ്പർട്ടി ഐഡികൾ മാത്രം അടങ്ങിയ ഒരു അറേ പ്രോപ്സ് ആയി നൽകാൻ
+  const wishlistIds = wishlistProps.map(item => item._id);
 
   return (
     <div className="max-w-7xl mx-auto p-6 min-h-screen">
@@ -65,7 +58,8 @@ const Wishlist = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {wishlistProps.map((property) => (
-            <div key={property._id} onClick={() => handleRemoveFromWishlistUI(property._id)}>
+            // FIX 2: പുറത്തെ div-ൽ ഉണ്ടായിരുന്ന onClick നീക്കം ചെയ്തു (ഇപ്പോൾ കാർഡ് ക്ലിക്ക് ചെയ്താൽ കറക്റ്റ് ആയി Navigate ചെയ്യും)
+            <div key={property._id}>
               <PropertyCard 
                 id={property._id}
                 image={property.images?.[0] || property.image || property.houseImage} 
@@ -76,7 +70,8 @@ const Wishlist = () => {
                 description={property.description}
                 area={property.area}
                 bathrooms={property.bathrooms}
-                currentUserWishlist={[property._id]} 
+                // നിലവിലുള്ള വിഷ്‌ലിസ്റ്റ് ഐഡികൾ കൃത്യമായി പാസ്സ് ചെയ്യുന്നു
+                currentUserWishlist={wishlistIds} 
               />
             </div>
           ))}
