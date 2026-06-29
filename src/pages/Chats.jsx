@@ -9,11 +9,11 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
 import ChatWindow from '../components/ChatWindow'; 
-import { useCall } from '../App'; // 🚀 PRO FIX: Global Call Hook
+import { useCall } from '../App'; 
 
 const Chats = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // 🚀 PRO FIX: Used to receive data passed from the Property page
+  const location = useLocation(); 
   const socket = useSocket();
   const { user } = useAuth(); 
   const { initiateCall } = useCall(); 
@@ -55,7 +55,6 @@ const Chats = () => {
     };
   }, [isDarkMode]);
 
-  // 🚀 PRO FIX: Logic triggered when navigating from PropertyDetails
   useEffect(() => {
     if (location.state && location.state.ownerId) {
       const { ownerId, ownerName, ownerAvatar, startCall, callType } = location.state;
@@ -66,25 +65,20 @@ const Chats = () => {
         avatar: ownerAvatar 
       };
 
-      // 1. Sets the active chat to open the chat window
       setActiveChat(newActiveChat);
 
-      // 2. Adds the contact to the list if it doesn't already exist
       setContacts((prev) => {
         const exists = prev.find(c => getUserId(c) === ownerId);
         if (!exists) return [newActiveChat, ...prev];
         return prev;
       });
 
-      // 3. Automatically initiates a call if requested
       if (startCall && initiateCall) {
-        // 4. Introduces a brief delay for the UI to fully render
         setTimeout(() => {
           initiateCall(ownerId, ownerName, ownerAvatar, callType);
         }, 500);
       }
 
-      // 5. Clears location state to prevent re-triggering call/logic on refresh
       navigate(location.pathname, { replace: true });
     }
   }, [location.state, getUserId, initiateCall, navigate, location.pathname]);
@@ -94,8 +88,14 @@ const Chats = () => {
       if (!currentUserId) return;
       try {
         const res = await apiRequest('/messages/conversations', { method: 'GET' });
-        const data = await res.json();
-        if (data.success) setContacts(data.data);
+        if (res.ok) {
+          const data = await res.json();
+          // ബാക്ക്-എൻഡിൽ നിന്ന് വരുന്ന ഡാറ്റ സ്ട്രക്ച്ചർ അനുസരിച്ച് അഡ്ജസ്റ്റ് ചെയ്തു
+          const fetchedContacts = data.data || data || []; 
+          if (Array.isArray(fetchedContacts)) {
+             setContacts(fetchedContacts);
+          }
+        }
       } catch (err) { 
         console.error("Contacts fetch error:", err); 
       }
@@ -103,21 +103,17 @@ const Chats = () => {
     fetchConversations();
   }, [currentUserId]);
 
-  // 💡 പുതുക്കിയ fetchMessages useEffect
   useEffect(() => {
-    // 💡 ഐഡി ഇല്ലെങ്കിലോ അല്ലെങ്കിൽ 'null', 'undefined' എന്ന ടെക്സ്റ്റ് ആണെങ്കിലോ റിക്വസ്റ്റ് പോകരുത്
     if (!activeChatId || activeChatId === 'undefined' || activeChatId === 'null' || !currentUserId) return;
     
     const fetchMessages = async () => {
       try {
         const res = await apiRequest(`/messages/${activeChatId}`, { method: 'GET' });
-        // റെസ്പോൺസ് വാലിഡ് ആണോ എന്ന് നോക്കുക
         if (res.ok) {
            const data = await res.json();
-           if (data.success) {
-             setChatHistory(prev => ({ ...prev, [activeChatId]: data.data }));
-             if (socket) socket.emit('mark-messages-read', { senderId: activeChatId, receiverId: currentUserId });
-           }
+           const fetchedMessages = data.data || data || [];
+           setChatHistory(prev => ({ ...prev, [activeChatId]: fetchedMessages }));
+           if (socket) socket.emit('mark-messages-read', { senderId: activeChatId, receiverId: currentUserId });
         }
       } catch (err) { 
         console.error("Messages fetch error:", err); 
@@ -142,6 +138,7 @@ const Chats = () => {
       ...(callDetails && { callDetails })
     };
 
+    // തൽക്കാലം സ്ക്രീനിൽ കാണിക്കാൻ മെസ്സേജ് ആഡ് ചെയ്യുന്നു
     setChatHistory(prev => ({ ...prev, [receiverId]: [...(prev[receiverId] || []), optimisticMsg] }));
 
     setContacts(prevContacts => {
@@ -166,48 +163,61 @@ const Chats = () => {
       });
       
       const savedData = await response.json();
-      if (savedData.success) {
-        const savedMessage = { ...savedData.data, senderId: currentUserId, receiverId: receiverId };
+      
+      // 💡 FIX: ബാക്ക്-എൻഡ് ഡാറ്റ അയക്കുന്ന രീതിക്കനുസരിച്ച് (success ഇല്ലെങ്കിലും വർക്ക് ആവാൻ) മാറ്റം വരുത്തി.
+      const messagePayload = savedData.data || savedData.message || savedData;
+
+      if (response.ok && messagePayload && messagePayload._id) {
+        const savedMessage = { ...messagePayload, senderId: currentUserId, receiverId: receiverId };
         
+        // സോക്കറ്റിലേക്ക് മെസ്സേജ് പാസ്സ് ചെയ്യുന്നു (ലൈവ് അപ്ഡേറ്റിന്)
         if (socket) socket.emit('send-message', savedMessage);
         
+        // ടെമ്പററി ഐഡി മാറ്റി ഒറിജിനൽ ഐഡി നൽകുന്നു
         setChatHistory(prev => ({
           ...prev,
           [receiverId]: (prev[receiverId] || []).map(msg => msg._id === tempId ? savedMessage : msg)
         }));
+      } else {
+        throw new Error("Message format invalid");
       }
     } catch (err) { 
       console.error("Failed to save message:", err);
+      // എറർ വന്നാൽ മെസ്സേജ് ഡിലീറ്റ് ആകാതിരിക്കാൻ sending സ്റ്റാറ്റസ് failed ആക്കുന്നു
       setChatHistory(prev => ({
         ...prev,
-        [receiverId]: (prev[receiverId] || []).filter(msg => msg._id !== tempId)
+        [receiverId]: (prev[receiverId] || []).map(msg => msg._id === tempId ? { ...msg, status: 'failed' } : msg)
       }));
     }
   }, [activeChatId, currentUserId, activeChat, socket, getUserId]);
 
+  // 💡 സോക്കറ്റ് ഇവന്റുകൾ കേൾക്കാനുള്ള അപ്ഡേറ്റ് ചെയ്ത കോഡ്
   useEffect(() => {
     if (!socket || !currentUserId) return;
 
     const handleReceiveMessage = (message) => {
+      if (!message || (!message._id && !message.id)) return; // അനാവശ്യ ഡാറ്റ ഒഴിവാക്കുന്നു
+
       const msgSenderId = getUserId(message.senderId || message.sender);
       const msgReceiverId = getUserId(message.receiverId || message.receiver);
       
-      // 🚀 PRO FIX: സ്വന്തം മെസ്സേജ് ആണെങ്കിലും മറ്റൊരാളുടെ ആണെങ്കിലും ചാറ്റ് പാർട്ണറെ കൃത്യമായി കണ്ടുപിടിക്കുന്നു.
       const chatPartnerId = msgSenderId === currentUserId ? msgReceiverId : msgSenderId;
       if (!chatPartnerId) return;
 
+      // മെസ്സേജ് ഹിസ്റ്ററി അപ്ഡേറ്റ് ചെയ്യുന്നു (ലൈവ് ആയി കാണിക്കാൻ)
       setChatHistory((prev) => {
         const existing = prev[chatPartnerId] || [];
+        // ഡ്യൂപ്ലിക്കേറ്റ് വരാതിരിക്കാൻ ചെക്ക് ചെയ്യുന്നു
         if (existing.some(m => m._id === message._id)) return prev;
         return { ...prev, [chatPartnerId]: [...existing, message] };
       });
 
+      // കോൺടാക്ട് ലിസ്റ്റ് അപ്ഡേറ്റ് ചെയ്യുന്നു
       setContacts((prevContacts) => {
         const filtered = prevContacts.filter((c) => getUserId(c) !== chatPartnerId);
         const existing = prevContacts.find((c) => getUserId(c) === chatPartnerId);
         const isChatOpen = activeChatIdRef.current === chatPartnerId;
         
-        // നമ്മൾ അയച്ചതോ അല്ലെങ്കിൽ നമ്മൾ കണ്ടുകൊണ്ടിരിക്കുന്ന ചാറ്റോ ആണെങ്കിൽ അൺറീഡ് കൗണ്ട് കൂട്ടേണ്ടതില്ല.
         const newUnreadCount = (isChatOpen || msgSenderId === currentUserId) ? 0 : (existing?.unreadCount || 0) + 1;
         let lastMsgText = message.messageType === 'call' 
           ? (message.callDetails?.callType === 'video' ? '📹 Video Call' : '📞 Audio Call') 
@@ -268,7 +278,6 @@ const Chats = () => {
     };
 
     socket.on('receive-message', handleReceiveMessage);
-    // 🚀 PRO FIX: ബാക്ക്എൻഡ് പ്രത്യേകമായി കോൾ ലോഗ് ഇവന്റുകൾ അയക്കുകയാണെങ്കിൽ അതും ലൈവ് ആയി അപ്ഡേറ്റ് ചെയ്യാൻ വേണ്ടി.
     socket.on('call-log-update', handleReceiveMessage); 
     socket.on('messages-read', handleMessagesRead);
     socket.on('receive-edit', handleMessageEdited);        
