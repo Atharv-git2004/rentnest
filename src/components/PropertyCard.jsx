@@ -24,7 +24,9 @@ const PropertyCard = ({
   const [isLiked, setIsLiked] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
 
-  // FIX 1: ID-കൾ തമ്മിൽ ടൈപ്പ് വ്യത്യാസം ഉണ്ടെങ്കിലും കൃത്യമായി കണ്ടുപിടിക്കാൻ String() ഉപയോഗിച്ചു നോക്കുന്നു
+  // FIX 1: പാരന്റ് കോംപോണന്റിൽ നിന്ന് പുതിയ അറേ റഫറൻസ് വരുമ്പോൾ സ്റ്റേറ്റ് റീസെറ്റ് ആകാതിരിക്കാൻ Stringify ചെയ്യുന്നു
+  const wishlistString = JSON.stringify(currentUserWishlist);
+
   useEffect(() => {
     if (currentUserWishlist && Array.isArray(currentUserWishlist)) {
       const isInWishlist = currentUserWishlist.some(
@@ -32,7 +34,7 @@ const PropertyCard = ({
       );
       setIsLiked(isInWishlist);
     }
-  }, [currentUserWishlist, id]);
+  }, [wishlistString, id]); // wishlistString ഡിപെൻഡൻസി ആക്കി മാറ്റി
 
   // Wishlist ടോഗിൾ ചെയ്യാനുള്ള ഫങ്ഷൻ
   const handleWishlistToggle = async (e) => {
@@ -47,7 +49,7 @@ const PropertyCard = ({
 
     setIsWishlistLoading(true);
     const previousState = isLiked;
-    setIsLiked(!isLiked); // Optimistic UI: ഉടൻ തന്നെ ഹാർട്ട് ലൈറ്റ് ഓൺ ആക്കുന്നു
+    setIsLiked(!isLiked); // Optimistic UI: ഉടൻ തന്നെ ഹാർട്ട് റെഡ് കളർ ആക്കുന്നു
 
     try {
       const res = await apiRequest('/users/wishlist/toggle', {
@@ -55,7 +57,6 @@ const PropertyCard = ({
         body: { propertyId: id } 
       });
 
-      // FIX 2: കസ്റ്റം apiRequest ആയതുകൊണ്ട് res.ok ഇല്ലാതെയുള്ള എറർ ഉണ്ടാകാതിരിക്കാൻ ഇത് മാറ്റിയെഴുതി
       if (res && res.status === false) {
         throw new Error("Failed to update wishlist");
       }
@@ -121,10 +122,12 @@ const PropertyCard = ({
           className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10 bg-white/90 backdrop-blur-sm p-1.5 sm:p-2 rounded-full shadow-sm hover:scale-110 transition-transform duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
           aria-label="Like property"
         >
+          {/* FIX 2: fill പ്രോപ്പർട്ടി നേരിട്ട് നൽകി കളർ ബഗ് പരിഹരിച്ചു */}
           <Heart
             size={18}
+            fill={isLiked ? "#ef4444" : "none"}
             className={`transition-colors duration-200 ${
-              isLiked ? "fill-red-500 text-red-500" : "text-slate-400"
+              isLiked ? "text-red-500" : "text-slate-400"
             }`}
           />
         </button>
