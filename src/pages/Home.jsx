@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { MapPin, Building, ShieldCheck, Search, ArrowRight, Home as HomeIcon } from "lucide-react";
 
-import SearchBar from "../components/SearchBar";
 import PropertyCard from "../components/PropertyCard";
 import Footer from "../components/Footer";
 import { apiRequest } from "../services/api";
@@ -64,16 +63,6 @@ const Home = () => {
           >
             Explore carefully selected properties that match your lifestyle. Safe, secure, and hassle-free.
           </motion.p>
-
-          {/* Search Bar Wrapper */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="w-full max-w-3xl bg-white p-2 md:p-3 rounded-2xl shadow-2xl"
-          >
-            <SearchBar />
-          </motion.div>
         </div>
       </section>
 
