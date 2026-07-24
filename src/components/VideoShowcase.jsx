@@ -19,8 +19,8 @@ const VideoShowcase = () => {
       borderRadius: "16px",
       overflow: "hidden",
       width: "100%",
-      aspectRatio: "16/9", // വീഡിയോ കൃത്യം സൈസിൽ ഇരിക്കാൻ
-      backgroundColor: "#1e293b", // ലോഡ് ആവുന്നതിന് മുൻപുള്ള കളർ
+      aspectRatio: "16/9",
+      backgroundColor: "#1e293b",
     },
     video: {
       width: "100%",
@@ -60,16 +60,15 @@ const VideoShowcase = () => {
       }}
     >
       <div style={styles.videoWrapper}>
-        {/* 🎬 Video Tag */}
         <video autoPlay loop muted playsInline style={styles.video}>
-          {/* നിങ്ങൾക്ക് ഇഷ്ടമുള്ള റിയൽ എസ്റ്റേറ്റ് വീഡിയോ ഇവിടെ നൽകാം. 
-              ഉദാഹരണത്തിന് നിങ്ങളുടെ സ്വന്തം വീഡിയോ public ഫോൾഡറിൽ ഉണ്ടെങ്കിൽ: 
-              src="/my-video.mp4" എന്ന് കൊടുക്കാം. */}
-          <source src="https://cdn.pixabay.com/video/2019/11/04/28731-370503080_large.mp4" type="video/mp4" />
+          {/* വേറൊരു സ്റ്റേബിൾ സാമ്പിൾ വീഡിയോ ലിങ്ക് */}
+          <source
+            src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            type="video/mp4"
+          />
           Your browser does not support the video tag.
         </video>
 
-        {/* ✨ ചെറിയൊരു ഓവർലേ ആനിമേഷൻ ടെക്സ്റ്റ് */}
         <div style={styles.overlayText} className="animate-bounce">
           <span style={{ fontSize: "18px" }}>✨</span>
           Experience Luxury Living
