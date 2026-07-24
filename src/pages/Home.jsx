@@ -5,7 +5,7 @@ import { MapPin, Building, ShieldCheck, Search, ArrowRight, Home as HomeIcon } f
 import PropertyCard from "../components/PropertyCard";
 import Footer from "../components/Footer";
 import { apiRequest } from "../services/api";
-import RentHouseVideoCard from "../components/VideoShowcase";
+
 
 const Home = () => {
   const [properties, setProperties] = useState([]);
