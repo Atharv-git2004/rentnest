@@ -61,11 +61,8 @@ const VideoShowcase = () => {
     >
       <div style={styles.videoWrapper}>
         <video autoPlay loop muted playsInline style={styles.video}>
-          {/* വേറൊരു സ്റ്റേബിൾ സാമ്പിൾ വീഡിയോ ലിങ്ക് */}
-          <source
-            src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            type="video/mp4"
-          />
+          {/* വർക്കിംഗ് ആയ പബ്ലിക് സാമ്പിൾ വീഡിയോ ലിങ്ക് */}
+          <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
 
